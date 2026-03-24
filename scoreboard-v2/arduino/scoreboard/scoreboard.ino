@@ -1,6 +1,6 @@
 // Cricket Scoreboard Controller
 // Droylsden Cricket Club
-// v2.2 - Layout handling cleaned up for current R4 wiring/tests
+// v2.3 - Restored guide-compatible production layout
 //
 // Serial protocol (57600 baud, '#' or newline terminated):
 //   Receive: 4,<batA>,<total>,<batB>,<wickets>,<overs>,<target>#
@@ -10,9 +10,8 @@
 //   Send:    READY
 //
 // Wiring:
-//   Shifter set 1: pins 4(SRCK), 3(SERIN), 2(RCK)
-//   Shifter set 2: pins 7(SRCK), 6(SERIN), 5(RCK)
-//   NOTE: SRCK and RCK are swapped vs original v1 wiring labels.
+//   Shifter set 1: pins 2(SRCK), 3(SERIN), 4(RCK)
+//   Shifter set 2: pins 5(SRCK), 6(SERIN), 7(RCK)
 //
 // KEY FIX (v2.1): On ARM-based Arduino boards (R4 WiFi), global constructors
 // run before hardware is initialised. pinMode() in the ShifterStr constructor
@@ -28,19 +27,19 @@
 #define CMD_BUF_SIZE 64
 #define HEARTBEAT_MS 2000
 #define SHIFT_PULSE_MS 20
-#define SET1_DIGITS 6
+#define SET1_DIGITS 9
 #define SET2_DIGITS 6
 
-#if (SET1_DIGITS != 6) && (SET1_DIGITS != 9)
-#error "SET1_DIGITS must be 6 or 9"
+#if (SET1_DIGITS != 9)
+#error "SET1_DIGITS must be 9"
 #endif
 
 #if (SET2_DIGITS != 6)
 #error "SET2_DIGITS must be 6"
 #endif
 
-Shifter shifterSet1(SET1_DIGITS, 4, 3, 2);
-Shifter shifterSet2(SET2_DIGITS, 7, 6, 5);
+Shifter shifterSet1(SET1_DIGITS, 2, 3, 4);
+Shifter shifterSet2(SET2_DIGITS, 5, 6, 7);
 
 char cmdBuf[CMD_BUF_SIZE];
 uint8_t cmdLen = 0;
@@ -67,9 +66,7 @@ void buildSet1Display(const char* batA, const char* total, const char* batB, cha
   uint8_t pos = 0;
   appendField(displayOut, pos, SET1_DIGITS, batA);
   appendField(displayOut, pos, SET1_DIGITS, total);
-  if (SET1_DIGITS >= 9) {
-    appendField(displayOut, pos, SET1_DIGITS, batB);
-  }
+  appendField(displayOut, pos, SET1_DIGITS, batB);
   padDisplay(displayOut, pos, SET1_DIGITS);
 }
 

@@ -102,6 +102,18 @@
       pcStatusBar.className = isError ? 'status-bar error' : 'status-bar ok';
     }
 
+    function getAuthHeaders() {
+      const token = getToken();
+      if (!token) {
+        showStatus('Enter the admin token first', true);
+        return null;
+      }
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      };
+    }
+
     document.getElementById('btn-pc-start').addEventListener('click', async () => {
       const matchId  = document.getElementById('pc-match-id').value.trim();
       const apiToken = document.getElementById('pc-api-token').value.trim();
@@ -109,10 +121,12 @@
         showPcStatus('Enter a Match ID and API Token', true);
         return;
       }
+      const headers = getAuthHeaders();
+      if (!headers) return;
       try {
         const res  = await fetch('/api/playcricket/start', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ matchId, apiToken })
         });
         const data = await res.json();
@@ -123,8 +137,10 @@
     });
 
     document.getElementById('btn-pc-stop').addEventListener('click', async () => {
+      const headers = getAuthHeaders();
+      if (!headers) return;
       try {
-        const res  = await fetch('/api/playcricket/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const res  = await fetch('/api/playcricket/stop', { method: 'POST', headers });
         const data = await res.json();
         showPcStatus(data.message || data.error, !data.ok);
       } catch (err) {
