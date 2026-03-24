@@ -1,0 +1,6 @@
+AuthType Basic
+AuthName "Shutdown"
+# (Following line optional)
+AuthBasicProvider file
+AuthUserFile /var/www/shutdown/.shutdown.password
+Require user shutdown

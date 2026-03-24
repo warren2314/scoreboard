@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tar tzf:*)",
+      "Bash(ssh-copy-id:*)",
+      "WebFetch(domain:play-cricket.com)",
+      "WebSearch",
+      "WebFetch(domain:play-cricket.ecb.co.uk)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(bash \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/deploy.sh\" 192.168.0.214 warren)",
+      "Bash(bash deploy.sh 192.168.0.112 warren)",
+      "Bash(ssh warren@192.168.0.112 \"sudo dmesg | grep -i ''usb\\\\|tty\\\\|acm'' | tail -30\")",
+      "Bash(ssh warren@192.168.0.112 \"sudo dmesg | grep -i ''usb\\\\|acm\\\\|tty'' | grep -v ''xhci\\\\|hub\\\\|root\\\\|registered\\\\|ttyAMA\\\\|RFCOMM\\\\|serial-getty\\\\|getty'' | tail -20\")",
+      "Bash(ssh warren@192.168.0.112 \"sudo journalctl -u scoreboard -n 30 --no-pager\")",
+      "Bash(ssh warren@192.168.0.112 \"sudo systemctl stop scoreboard && mkdir -p /tmp/diagnostic/diagnostic && echo ''stopped''\")",
+      "Bash(scp \"c:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/diagnostic/diagnostic.ino\" warren@192.168.0.112:/tmp/diagnostic/diagnostic/diagnostic.ino)",
+      "Bash(ssh warren@192.168.0.112 \"arduino-cli compile -b arduino:avr:uno /tmp/diagnostic/diagnostic && arduino-cli upload -b arduino:avr:uno -p /dev/ttyACM0 /tmp/diagnostic/diagnostic\")",
+      "Bash(ssh warren@192.168.0.112 \"arduino-cli compile -b arduino:avr:uno /tmp/scoreboard-sketch/scoreboard && arduino-cli upload -b arduino:avr:uno -p /dev/ttyACM0 /tmp/scoreboard-sketch/scoreboard && sudo systemctl start scoreboard\")",
+      "Bash(ssh warren@192.168.0.112 \"mkdir -p /tmp/scoreboard-sketch/scoreboard\")",
+      "Bash(scp \"c:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/scoreboard/scoreboard.ino\" warren@192.168.0.112:/tmp/scoreboard-sketch/scoreboard/)",
+      "Bash(ssh warren@192.168.0.112 \"sudo systemctl status scoreboard --no-pager && sudo journalctl -u scoreboard -n 20 --no-pager\")",
+      "Bash(arduino-cli version:*)",
+      "Bash(arduino-cli board:*)",
+      "Bash(bash deploy.sh 192.168.0.112)",
+      "Bash(bash \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/deploy.sh\" 192.168.0.112 warren 2>&1)",
+      "Bash(ssh:*)",
+      "Bash(scp -r \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/rawtest\" warren@192.168.0.112:/tmp/rawtest-sketch/)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/rawtest/rawtest.ino\" warren@192.168.0.112:/tmp/rawtest-sketch/rawtest/)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/lib/ShifterStr/ShifterStr.cpp\" \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/lib/ShifterStr/ShifterStr.h\" warren@192.168.0.112:/tmp/rawtest-sketch/)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/scoreboard/scoreboard.ino\" warren@192.168.0.112:/tmp/scoreboard-sketch/scoreboard/)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/rawtest/rawtest.ino\" warren@192.168.0.112:/tmp/scoreboard-sketch/rawtest/rawtest.ino)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/slowtest/slowtest.ino\" warren@192.168.0.112:/tmp/scoreboard-sketch/slowtest/slowtest.ino)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/scoreboard/scoreboard.ino\" warren@192.168.0.112:/tmp/scoreboard-sketch/scoreboard/scoreboard.ino)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/lib/ShifterStr/ShifterStr.cpp\" warren@192.168.0.112:/tmp/scoreboard-sketch/scoreboard/lib/ShifterStr/ShifterStr.cpp)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/lib/ShifterStr/ShifterStr.h\" warren@192.168.0.112:/tmp/scoreboard-sketch/scoreboard/lib/ShifterStr/ShifterStr.h)",
+      "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/single_digit_test/single_digit_test.ino\" warren@192.168.0.112:/tmp/scoreboard-sketch/single_digit_test/single_digit_test.ino)",
+      "Bash(scp:*)"
+    ]
+  }
+}

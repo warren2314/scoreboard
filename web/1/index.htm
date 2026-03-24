@@ -1,0 +1,244 @@
+<html>
+<head>
+<link rel="stylesheet" href="./css/jquery.mobile-1.3.0.min.css" />
+<link rel="stylesheet" href="./css/mobiscroll.custom-2.4.4.min.css" />
+<script src="./jquery/jquery-1.9.1.min.js"></script>
+<script src="./jquery/jquery.mobile-1.3.0.min.js"></script>
+<script src="./jquery/mobiscroll.custom-2.4.4.min.js"></script>
+<script>
+
+var totalValues = new Array("0","0","0");
+var wicketsValues = new Array("0");
+var oversValues = new Array("0","0");
+var batsmanaValues = new Array("0","0","0");
+var batsmanbValues = new Array("0","0","0");
+var targetValues = new Array("0","0","0");
+
+ function onSuccess(data, status)
+        {
+            data = $.trim(data);
+            $("#notification").text(data);
+        }
+
+ function onError(data, status)
+        {
+            // handle an error
+        }
+
+  function submitForm(){
+
+		var formData2 = "totalHundreds="+totalValues[0]+
+				"&totalTens="+totalValues[1]+
+				"&totalOnes="+totalValues[2]+
+				"&wicketsOnes="+wicketsValues[0]+
+				"&oversTens="+oversValues[0]+
+				"&oversOnes="+oversValues[1]+
+				"&batsmanaHundreds="+batsmanaValues[0]+
+				"&batsmanaTens="+batsmanaValues[1]+
+				"&batsmanaOnes="+batsmanaValues[2]+
+				"&batsmanbHundreds="+batsmanbValues[0]+
+				"&batsmanbTens="+batsmanbValues[1]+
+				"&batsmanbOnes="+batsmanbValues[2]+
+				"&targetHundreds="+targetValues[0]+
+				"&targetTens="+targetValues[1]+
+				"&targetOnes="+targetValues[2];
+		
+                $.ajax({
+                    type: "POST",
+                    url: "scoreboard.php",
+                    cache: false,
+                    data: formData2,
+                    success: onSuccess,
+                    error: onError
+                });
+
+                return false;
+            }
+
+$(document).ready(function(){
+$('#score').scroller({
+        theme: 'wp',
+        display: 'inline',
+	accent: 'lime',
+        mode: 'mixed',
+	width: 80,
+        wheels: 
+            [{
+                'Hundreds': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' }, 
+            }, 
+            {
+                'Tens': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' }, 
+            }, 
+            {
+                'Ones': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' }, 
+            }],
+        onChange: function(valueText, inst) {
+            scrollerVals = inst.temp;
+	    totalValues = inst.temp;
+	    submitForm();
+        }
+}).scroller('setValue', ['0', '0', '0'],true,.2);;
+
+$('#wickets').scroller({
+        theme: 'wp',
+        display: 'inline',
+        accent: 'lime',
+        mode: 'mixed',
+        width: 80,
+        wheels:
+            [{
+                'Ones': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            }],
+        onChange: function(valueText, inst) {
+            scrollerVals = inst.temp;
+            wicketsValues = inst.temp;
+            submitForm();
+        }
+}).scroller('setValue', ['0'],true,.2);;
+
+$('#overs').scroller({
+        theme: 'wp',
+        display: 'inline',
+        accent: 'lime',
+        mode: 'mixed',
+        width: 80,
+        wheels:
+            [{
+                'Tens': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            },
+            {
+                'Ones': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            }],
+        onChange: function(valueText, inst) {
+            scrollerVals = inst.temp;
+            oversValues = inst.temp;
+            submitForm();
+        }
+}).scroller('setValue', ['0', '0'],true,.2);;
+
+$('#batsmana').scroller({
+        theme: 'wp',
+        display: 'inline',
+        accent: 'lime',
+        mode: 'mixed',
+        width: 57,
+        wheels:
+            [{
+                'Hundreds': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            },
+            {
+                'Tens': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            },
+            {
+                'Ones': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            }],
+        onChange: function(valueText, inst) {
+            scrollerVals = inst.temp;
+            batsmanaValues = inst.temp;
+            submitForm();
+        }
+}).scroller('setValue', ['0', '0', '0'],true,.2);;
+
+$('#batsmanb').scroller({
+        theme: 'wp',
+        display: 'inline',
+        accent: 'lime',
+        mode: 'mixed',
+        width: 57,
+        wheels:
+            [{
+                'Hundreds': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            },
+            {
+                'Tens': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            },
+            {
+                'Ones': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            }],
+        onChange: function(valueText, inst) {
+            scrollerVals = inst.temp;
+            batsmanbValues = inst.temp;
+            submitForm();
+        }
+}).scroller('setValue', ['0', '0', '0'],true,.2);;
+
+$('#target').scroller({
+        theme: 'wp',
+        display: 'inline',
+        accent: 'lime',
+        mode: 'mixed',
+        width: 57,
+        wheels:
+            [{
+                'Hundreds': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            },
+            {
+                'Tens': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            },
+            {
+                'Ones': { 0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9' },
+            }],
+        onChange: function(valueText, inst) {
+            scrollerVals = inst.temp;
+            targetValues = inst.temp;
+            submitForm();
+        }
+}).scroller('setValue', ['0', '0', '0'],true,.2);;
+
+});
+</script>
+</head>
+<body>
+<div data-role="page" id="callAjaxPage">
+        <div data-role="header">
+            <h1>Westbury on Severn Scoreboard</h1>
+        </div>
+
+        <div data-role="content">
+            <form id="callAjaxForm">
+
+	<table>
+	<tr>
+		<td><h2> Total </h2></td>
+		<td>&nbsp;</td>
+		<td><h2>Wickets</h2></td>
+		<td>&nbsp;</td>
+		<td><h2>Overs</h2></td>
+	</tr>
+	<tr>
+		<td><input id="score" style="display: none;"/></td>
+		<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+		<td><input id="wickets" style="display: none;"/></td>
+		<td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+		<td><input id="overs" style="display: none;"/></td>
+	</tr>
+	</table><br>
+	
+	<table>
+	<tr>
+                <td><h2>Batsman A </h2></td>
+                <td>&nbsp;</td>
+                <td><h2>Batsman B </h2></td>
+                <td>&nbsp;</td>
+                <td><h2>Target </h2></td>
+	</tr>
+	<tr>
+                <td><input id="batsmana" style="display: none;"/></td>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                <td><input id="batsmanb" style="display: none;"/></td>
+                <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                <td><input id="target" style="display: none;"/></td>
+	</tr>
+	</table>
+
+	<h3 id="notification"></h3>
+        </form>
+        </div>
+
+        <div data-role="footer">
+            <h1>Brought to you by Ian Broady, Ian Nice and Ian Martin - Westbury on Severn Cricket Club - www.woscc.org.uk</h1>
+        </div>
+
+
+</body>
+</html>

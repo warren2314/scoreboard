@@ -1,0 +1,19 @@
+[Unit]
+Description=Cricket Scoreboard - Westbury on Severn CC
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node /opt/scoreboard/server.js
+WorkingDirectory=/opt/scoreboard
+Restart=always
+RestartSec=5
+User=root
+Environment=NODE_ENV=production
+Environment=SERIAL_PORT=/dev/ttyACM0
+Environment=SERIAL_BAUD=57600
+Environment=HTTP_PORT=80
+Environment=ADMIN_TOKEN=changeme
+
+[Install]
+WantedBy=multi-user.target

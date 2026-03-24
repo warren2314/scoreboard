@@ -1,0 +1,6 @@
+AuthType Basic
+AuthName "Reboot"
+# (Following line optional)
+AuthBasicProvider file
+AuthUserFile /var/www/reboot/.reboot.password
+Require user reboot

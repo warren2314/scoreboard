@@ -1,0 +1,13 @@
+{
+  "name": "cricket-scoreboard",
+  "version": "2.0.0",
+  "description": "Westbury on Severn Cricket Club - Web-controlled scoreboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "serialport": "^12.0.0"
+  }
+}

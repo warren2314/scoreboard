@@ -1,0 +1,77 @@
+<html>
+<head>
+<link rel="stylesheet" href="./css/jquery.mobile-1.3.0.min.css" />
+<script src="./jquery/jquery-1.9.1.min.js"></script>
+<script src="./jquery/jquery.mobile-1.3.0.min.js"></script>
+<script>
+
+function onSuccess(data, status)
+        {
+            data = $.trim(data);
+            $("#notification").text(data);
+        }
+
+function onError(data, status)
+        {
+            // handle an error
+        }
+
+$(document).ready(function(){
+	$("#reboot").click(function(){ 
+		 $.ajax({
+                    type: "GET",
+                    url: "./reboot/reboot.php",
+                    cache: false,
+                    success: onSuccess,
+                    error: onError
+                });
+	return false;
+	});
+
+	$("#shutdown").click(function(){ 
+		 $.ajax({
+                    type: "GET",
+                    url: "./shutdown/shutdown.php",
+                    cache: false,
+                    success: onSuccess,
+                    error: onError
+                });
+	return false;
+	});
+
+	$("#test").click(function(){ 
+		 $.ajax({
+                    type: "GET",
+                    url: "./testMode.php",
+                    cache: false,
+                    success: onSuccess,
+                    error: onError
+                });
+	return false;
+	});
+
+	});
+</script>
+</head>
+<body>
+<div data-role="page" id="callAjaxPage">
+        <div data-role="header">
+            <h1>Westbury on Severn Scoreboard - Admin Page</h1>
+        </div>
+
+        <div data-role="content">
+
+		<a href="./" data-ajax="false" data-role="button" data-icon="home" data-theme="b" data-inline="true" data-mini="true">Home</a>
+		<button id="test" data-role="button" data-icon="gear" data-theme="b" data-inline="true" data-mini="true">Test Mode</button>
+		<button id="reboot" data-role="button" data-icon="forward" data-theme="b" data-inline="true" data-mini="true">Reboot</button>
+		<button id="shutdown" data-role="button" data-icon="alert" data-theme="b" data-inline="true" data-mini="true">Shutdown</button>
+
+	<h3 id="notification"></h3>
+        </div>
+        <div data-role="footer">
+            <h1>Brought to you by Ian Broady, Ian Nice and Ian Martin - Westbury on Severn Cricket Club - www.woscc.org.uk</h1>
+        </div>
+
+
+</body>
+</html>
