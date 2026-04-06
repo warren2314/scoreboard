@@ -4,7 +4,7 @@
 
 $ARDUINO_CLI = "C:\Users\warre\Downloads\arduino-cli_1.4.1_Windows_64bit\arduino-cli.exe"
 $FQBN        = "arduino:renesas_uno:unor4wifi"
-$SKETCH      = Join-Path $PSScriptRoot "single_digit_test"
+$SKETCH      = Join-Path $PSScriptRoot "scoreboard"
 
 Write-Host ""
 Write-Host "=======================================" -ForegroundColor Cyan

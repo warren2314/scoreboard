@@ -4,7 +4,7 @@ const score = {
   total:    ['−', '−', '0'],   // 3 digits
   batsmanB: ['−', '−', '0'],   // 3 digits
   target:   ['−', '−', '0'],   // 3 digits
-  wickets:  ['−', '0'],         // 2 digits
+  wickets:  ['0'],               // 1 digit
   overs:    ['−', '0'],         // 2 digits
   dls:      ['−', '−', '0']    // 3 digits
 };

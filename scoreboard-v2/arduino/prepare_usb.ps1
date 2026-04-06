@@ -2,7 +2,7 @@
 # Run this at home to copy everything needed onto the USB stick.
 
 $ARDUINO_CLI_SRC = "C:\Users\warre\Downloads\arduino-cli_1.4.1_Windows_64bit\arduino-cli.exe"
-$SKETCH_SRC      = Join-Path $PSScriptRoot "single_digit_test"
+$SKETCH_SRC      = Join-Path $PSScriptRoot "scoreboard"
 $FLASH_PS1_SRC   = Join-Path $PSScriptRoot "flash.ps1"
 
 Write-Host ""
@@ -63,10 +63,10 @@ if (-not (Test-Path $SKETCH_SRC)) {
     Read-Host "Press Enter to exit"
     exit 1
 }
-if (Test-Path "$usbRoot\single_digit_test") {
-    Remove-Item "$usbRoot\single_digit_test" -Recurse -Force
+if (Test-Path "$usbRoot\scoreboard") {
+    Remove-Item "$usbRoot\scoreboard" -Recurse -Force
 }
-Copy-Item $SKETCH_SRC "$usbRoot\single_digit_test" -Recurse -Force
+Copy-Item $SKETCH_SRC "$usbRoot\scoreboard" -Recurse -Force
 
 # Copy flash.ps1 and update it to use local arduino-cli
 Write-Host "Copying flash script..." -ForegroundColor Cyan
