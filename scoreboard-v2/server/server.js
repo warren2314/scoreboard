@@ -17,11 +17,12 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'changeme';
 // Current score state (kept in memory so /api/status can return it)
 const state = {
   total: '--0',
-  wickets: '0',
+  wickets: '-0',
   overs: '-0',
   batsmanA: '--0',
   batsmanB: '--0',
   target: '--0',
+  dls: '--0',
   serialConnected: false,
   lastResponse: null
 };
@@ -184,11 +185,12 @@ function parsePlayCricketScore(json) {
 
   return {
     total:    fmtScore(cur.runs, 3),
-    wickets:  fmtScore(cur.wickets, 1),
+    wickets:  fmtScore(cur.wickets, 2),
     overs:    fmtScore(oversWhole, 2),
     batsmanA,
     batsmanB,
-    target
+    target,
+    dls:      '---'
   };
 }
 
@@ -205,9 +207,10 @@ async function doPlayCricketSync() {
     state.batsmanA = score.batsmanA;
     state.batsmanB = score.batsmanB;
     state.target   = score.target;
+    state.dls      = score.dls || '---';
 
     // Send to Arduino
-    const cmd = `4,${score.batsmanA},${score.total},${score.batsmanB},${score.wickets},${score.overs},${score.target}#`;
+    const cmd = `4,${score.batsmanA},${score.total},${score.batsmanB},${score.target},${score.wickets},${score.overs},${score.dls || '---'}#`;
     sendToArduino(cmd);
 
     pcState.lastSync  = new Date().toISOString();
@@ -250,15 +253,16 @@ function requireAdmin(req, res, next) {
 // --- Routes ---
 
 app.post('/api/score', requireAdmin, (req, res) => {
-  const { total, wickets, overs, batsmanA, batsmanB, target } = req.body;
+  const { total, wickets, overs, batsmanA, batsmanB, target, dls } = req.body;
 
-  // Validate field lengths: total(3), wickets(1), overs(2), batsmanA(3), batsmanB(3), target(3)
+  // Validate field lengths: total(3), wickets(2), overs(2), batsmanA(3), batsmanB(3), target(3), dls(3)
   if (!validateField(total, 3)) return res.status(400).json({ error: 'Invalid total (3 digits)' });
-  if (!validateField(wickets, 1)) return res.status(400).json({ error: 'Invalid wickets (1 digit)' });
+  if (!validateField(wickets, 2)) return res.status(400).json({ error: 'Invalid wickets (2 digits)' });
   if (!validateField(overs, 2)) return res.status(400).json({ error: 'Invalid overs (2 digits)' });
   if (!validateField(batsmanA, 3)) return res.status(400).json({ error: 'Invalid batsmanA (3 digits)' });
   if (!validateField(batsmanB, 3)) return res.status(400).json({ error: 'Invalid batsmanB (3 digits)' });
   if (!validateField(target, 3)) return res.status(400).json({ error: 'Invalid target (3 digits)' });
+  if (!validateField(dls, 3)) return res.status(400).json({ error: 'Invalid dls (3 digits)' });
 
   // Update state
   state.total = total;
@@ -267,9 +271,10 @@ app.post('/api/score', requireAdmin, (req, res) => {
   state.batsmanA = batsmanA;
   state.batsmanB = batsmanB;
   state.target = target;
+  state.dls = dls;
 
-  // Build CmdMessenger-compatible command: 4,batA,total,batB,wickets,overs,target#
-  const cmd = `4,${batsmanA},${total},${batsmanB},${wickets},${overs},${target}#`;
+  // Command format: 4,batA,total,batB,target,wickets,overs,dls#
+  const cmd = `4,${batsmanA},${total},${batsmanB},${target},${wickets},${overs},${dls}#`;
 
   const sent = sendToArduino(cmd);
   if (!sent) {
@@ -277,7 +282,7 @@ app.post('/api/score', requireAdmin, (req, res) => {
   }
 
   const summary = `Total: ${total} for ${wickets} wkts from ${overs} overs. ` +
-    `Target: ${target}. Bat A: ${batsmanA}, Bat B: ${batsmanB}`;
+    `Target: ${target}. Bat A: ${batsmanA}, Bat B: ${batsmanB}. DLS: ${dls}`;
   res.json({ ok: true, message: summary, command: cmd });
 });
 

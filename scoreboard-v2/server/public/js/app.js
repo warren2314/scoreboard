@@ -1,11 +1,12 @@
 // Score state — each field is a string of digits/dashes
 const score = {
-  total:    ['−', '−', '0'],   // 3 digits (hundreds, tens, ones)
-  wickets:  ['0'],              // 1 digit
-  overs:    ['−', '0'],         // 2 digits (tens, ones)
-  batsmanA: ['−', '−', '0'],
-  batsmanB: ['−', '−', '0'],
-  target:   ['−', '−', '0']
+  batsmanA: ['−', '−', '0'],   // 3 digits
+  total:    ['−', '−', '0'],   // 3 digits
+  batsmanB: ['−', '−', '0'],   // 3 digits
+  target:   ['−', '−', '0'],   // 3 digits
+  wickets:  ['−', '0'],         // 2 digits
+  overs:    ['−', '0'],         // 2 digits
+  dls:      ['−', '−', '0']    // 3 digits
 };
 
 // Map display dash to wire dash
@@ -111,7 +112,8 @@ async function doSend() {
     overs:    score.overs.map(toWire).join(''),
     batsmanA: score.batsmanA.map(toWire).join(''),
     batsmanB: score.batsmanB.map(toWire).join(''),
-    target:   score.target.map(toWire).join('')
+    target:   score.target.map(toWire).join(''),
+    dls:      score.dls.map(toWire).join('')
   };
 
   const statusBar = document.getElementById('status');

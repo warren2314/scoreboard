@@ -1,37 +1,47 @@
-// Single-digit test for one Shift2A chain.
+// Dual-chain digit test for Droylsden Cricket Club scoreboard.
 //
-// Default target is the currently working set-1 wiring discovered on 2026-03-20:
-//   SRCK  -> D4
-//   SERIN -> D3
-//   RCK   -> D2
-//   DIGITS -> 6
+// Chain 1 (top row, 9 digits): SRCK=D2, SERIN=D3, RCK=D4
+//   Digits 0-8: BatA(3) + Total(3) + BatB(3)
 //
-// IMPORTANT:
-// - Digit index 0 is the first byte in the logical buffer, not necessarily the
-//   left-most physical digit. Run the "walk#" command once to learn the order.
-// - Commands are newline or '#' terminated so they work in Serial Monitor.
+// Chain 2 (bottom row, 10 digits): SRCK=D5, SERIN=D6, RCK=D7
+//   Digits 9-18: Target(3) + Wickets(2) + Overs(2) + DLS(3)
 //
-// Commands:
+// Commands (# or newline terminated):
 //   help#
-//   walk#
-//   clear#
-//   delay,20#
-//   digit,3,8#
-//   digit,1,-#
-//   raw,2,254#
-//   scan,4#
+//   walk#              — walks an 8 across all 19 digits
+//   clear#             — all digits off
+//   delay,20#          — set shift pulse delay in ms
+//   digit,3,8#         — set digit 3 to '8'
+//   digit,12,-#        — set digit 12 to blank
+//   raw,2,254#         — set digit 2 to raw byte value
+//   scan,4#            — cycle digit 4 through 0-9
+//   alltest#           — show 8 on all 19 digits
 
 #include <stdlib.h>
 #include <string.h>
 
-#define SRCK 4
-#define SERIN 3
-#define RCK 2
-#define NUM_DIGITS 6
+// Uncomment the line below once chain 2 is physically wired up
+// #define CHAIN2_CONNECTED
+
+// Chain 1 — top row (9 digits)
+#define SRCK1  2
+#define SERIN1 3
+#define RCK1   4
+#define NUM_DIGITS1 9
+
+// Chain 2 — bottom row (10 digits)
+#define SRCK2  5
+#define SERIN2 6
+#define RCK2   7
+#define NUM_DIGITS2 10
+
+#define TOTAL_DIGITS (NUM_DIGITS1 + NUM_DIGITS2)
 #define SERIAL_BAUD 57600
 
 const byte SEGS[] = {252, 96, 218, 242, 102, 182, 190, 224, 254, 230};
-unsigned int pulseDelayMs = 10;  // milliseconds per shift step
+unsigned int pulseDelayMs = 1;  // 1ms is plenty for TPIC6B595 at these cable lengths
+
+byte displayBuf[TOTAL_DIGITS];
 
 char cmdBuf[48];
 uint8_t cmdLen = 0;
@@ -43,65 +53,72 @@ byte encodeGlyph(char glyph) {
   return 0;
 }
 
-void shiftByte(byte value) {
+void shiftByteOn(int srckPin, int serinPin, byte value) {
   for (byte bit = 0; bit < 8; bit++) {
-    digitalWrite(SRCK, LOW);
+    digitalWrite(srckPin, LOW);
     delay(pulseDelayMs);
-    digitalWrite(SERIN, (value & 0x01) ? HIGH : LOW);
+    digitalWrite(serinPin, (value & 0x01) ? HIGH : LOW);
     delay(pulseDelayMs);
-    digitalWrite(SRCK, HIGH);
+    digitalWrite(srckPin, HIGH);
     delay(pulseDelayMs);
     value >>= 1;
   }
-
-  digitalWrite(SRCK, LOW);
+  digitalWrite(srckPin, LOW);
   delay(pulseDelayMs);
-  digitalWrite(SERIN, LOW);
+  digitalWrite(serinPin, LOW);
 }
 
-void latch() {
+void latchOn(int rckPin) {
   delay(pulseDelayMs);
-  digitalWrite(RCK, HIGH);
+  digitalWrite(rckPin, HIGH);
   delay(pulseDelayMs);
-  digitalWrite(RCK, LOW);
+  digitalWrite(rckPin, LOW);
   delay(pulseDelayMs);
 }
 
-void displayRawDigits(const byte* digits) {
-  digitalWrite(RCK, LOW);
+void refreshChain1() {
+  digitalWrite(RCK1, LOW);
   delay(pulseDelayMs);
-  for (int i = NUM_DIGITS - 1; i >= 0; i--) {
-    shiftByte(digits[i]);
+  for (int i = NUM_DIGITS1 - 1; i >= 0; i--) {
+    shiftByteOn(SRCK1, SERIN1, displayBuf[i]);
   }
-  latch();
+  latchOn(RCK1);
+}
+
+void refreshChain2() {
+  digitalWrite(RCK2, LOW);
+  delay(pulseDelayMs);
+  for (int i = TOTAL_DIGITS - 1; i >= NUM_DIGITS1; i--) {
+    shiftByteOn(SRCK2, SERIN2, displayBuf[i]);
+  }
+  latchOn(RCK2);
+}
+
+void refreshDisplay() {
+  refreshChain1();
+#ifdef CHAIN2_CONNECTED
+  refreshChain2();
+#endif
 }
 
 void clearDisplay() {
-  byte digits[NUM_DIGITS];
-  for (int i = 0; i < NUM_DIGITS; i++) {
-    digits[i] = 0;
+  for (int i = 0; i < TOTAL_DIGITS; i++) {
+    displayBuf[i] = 0;
   }
-  displayRawDigits(digits);
+  refreshDisplay();
 }
 
-void showOneDigitRaw(int digitIndex, byte rawValue) {
-  byte digits[NUM_DIGITS];
-  for (int i = 0; i < NUM_DIGITS; i++) {
-    digits[i] = 0;
+void setDigitRaw(int idx, byte rawValue) {
+  if (idx >= 0 && idx < TOTAL_DIGITS) {
+    displayBuf[idx] = rawValue;
   }
-
-  if (digitIndex >= 0 && digitIndex < NUM_DIGITS) {
-    digits[digitIndex] = rawValue;
-  }
-
-  displayRawDigits(digits);
+  refreshDisplay();
 }
 
-void showOneDigitGlyph(int digitIndex, char glyph) {
-  showOneDigitRaw(digitIndex, encodeGlyph(glyph));
+void setDigitGlyph(int idx, char glyph) {
+  setDigitRaw(idx, encodeGlyph(glyph));
 }
 
-// Non-blocking wait that keeps USB alive
 void safeDelay(unsigned long ms) {
   unsigned long start = millis();
   while (millis() - start < ms) {
@@ -110,49 +127,59 @@ void safeDelay(unsigned long ms) {
 }
 
 void walkDigits() {
-  Serial.println("Walking an 8 across every logical digit index...");
-  for (int i = 0; i < NUM_DIGITS; i++) {
+  Serial.println("Walking an 8 across all digits...");
+  for (int i = 0; i < TOTAL_DIGITS; i++) {
+    clearDisplay();
     Serial.print("digit=");
     Serial.println(i);
-    showOneDigitGlyph(i, '8');
+    setDigitGlyph(i, '8');
     safeDelay(2000);
   }
   clearDisplay();
 }
 
-void scanDigit(int digitIndex) {
-  if (digitIndex < 0 || digitIndex >= NUM_DIGITS) {
+void allTest() {
+  Serial.println("All digits showing 8...");
+  for (int i = 0; i < TOTAL_DIGITS; i++) {
+    displayBuf[i] = SEGS[8];
+  }
+  refreshDisplay();
+}
+
+void scanDigit(int idx) {
+  if (idx < 0 || idx >= TOTAL_DIGITS) {
     Serial.println("ERR:digit out of range");
     return;
   }
-
   Serial.print("Scanning digit ");
-  Serial.println(digitIndex);
-  for (char glyph = '0'; glyph <= '9'; glyph++) {
+  Serial.println(idx);
+  for (char g = '0'; g <= '9'; g++) {
     Serial.print("glyph=");
-    Serial.println(glyph);
-    showOneDigitGlyph(digitIndex, glyph);
+    Serial.println(g);
+    setDigitGlyph(idx, g);
     safeDelay(2000);
   }
-  clearDisplay();
+  setDigitGlyph(idx, '-');
 }
 
 void printHelp() {
-  Serial.println("single_digit_test ready");
-  Serial.print("Pins: SRCK=");
-  Serial.print(SRCK);
-  Serial.print(" SERIN=");
-  Serial.print(SERIN);
-  Serial.print(" RCK=");
-  Serial.print(RCK);
-  Serial.print(" digits=");
-  Serial.println(NUM_DIGITS);
-  Serial.print("pulseDelayMs=");
-  Serial.println(pulseDelayMs);
-  Serial.println("Commands: help#, walk#, clear#, delay,<ms>#");
-  Serial.println("          digit,<index>,<0-9 or ->#");
-  Serial.println("          raw,<index>,<0-255>#");
-  Serial.println("          scan,<index>#");
+  Serial.println("Droylsden CC dual-chain digit test");
+  Serial.print("Chain1: SRCK="); Serial.print(SRCK1);
+  Serial.print(" SERIN="); Serial.print(SERIN1);
+  Serial.print(" RCK="); Serial.print(RCK1);
+  Serial.print(" digits="); Serial.println(NUM_DIGITS1);
+  Serial.print("Chain2: SRCK="); Serial.print(SRCK2);
+  Serial.print(" SERIN="); Serial.print(SERIN2);
+  Serial.print(" RCK="); Serial.print(RCK2);
+  Serial.print(" digits="); Serial.println(NUM_DIGITS2);
+  Serial.print("Total digits="); Serial.println(TOTAL_DIGITS);
+  Serial.print("pulseDelayMs="); Serial.println(pulseDelayMs);
+  Serial.println("Digit map:");
+  Serial.println("  0-2: BatA  3-5: Total  6-8: BatB");
+  Serial.println("  9-11: Target  12-13: Wickets  14-15: Overs  16-18: DLS");
+  Serial.println("Commands: help#, walk#, clear#, alltest#, delay,<ms>#");
+  Serial.println("          digit,<0-18>,<0-9 or ->#");
+  Serial.println("          raw,<0-18>,<0-255>#, scan,<0-18>#");
 }
 
 void processCommand() {
@@ -174,6 +201,12 @@ void processCommand() {
     return;
   }
 
+  if (strcmp(cmdBuf, "alltest") == 0) {
+    allTest();
+    Serial.println("OK:alltest");
+    return;
+  }
+
   if (strncmp(cmdBuf, "delay,", 6) == 0) {
     int value = atoi(cmdBuf + 6);
     if (value < 0) {
@@ -187,27 +220,27 @@ void processCommand() {
   }
 
   if (strncmp(cmdBuf, "scan,", 5) == 0) {
-    int digitIndex = atoi(cmdBuf + 5);
-    scanDigit(digitIndex);
+    int idx = atoi(cmdBuf + 5);
+    scanDigit(idx);
     return;
   }
 
   if (strncmp(cmdBuf, "digit,", 6) == 0) {
     char* p = cmdBuf + 6;
-    int digitIndex = atoi(p);
+    int idx = atoi(p);
     p = strchr(p, ',');
     if (!p || *(p + 1) == '\0') {
       Serial.println("ERR:bad digit command");
       return;
     }
     char glyph = *(p + 1);
-    if (digitIndex < 0 || digitIndex >= NUM_DIGITS) {
-      Serial.println("ERR:digit out of range");
+    if (idx < 0 || idx >= TOTAL_DIGITS) {
+      Serial.println("ERR:digit out of range (0-18)");
       return;
     }
-    showOneDigitGlyph(digitIndex, glyph);
+    setDigitGlyph(idx, glyph);
     Serial.print("OK:digit=");
-    Serial.print(digitIndex);
+    Serial.print(idx);
     Serial.print(",glyph=");
     Serial.println(glyph);
     return;
@@ -215,20 +248,20 @@ void processCommand() {
 
   if (strncmp(cmdBuf, "raw,", 4) == 0) {
     char* p = cmdBuf + 4;
-    int digitIndex = atoi(p);
+    int idx = atoi(p);
     p = strchr(p, ',');
     if (!p || *(p + 1) == '\0') {
       Serial.println("ERR:bad raw command");
       return;
     }
     int rawValue = atoi(p + 1);
-    if (digitIndex < 0 || digitIndex >= NUM_DIGITS || rawValue < 0 || rawValue > 255) {
+    if (idx < 0 || idx >= TOTAL_DIGITS || rawValue < 0 || rawValue > 255) {
       Serial.println("ERR:raw args out of range");
       return;
     }
-    showOneDigitRaw(digitIndex, (byte)rawValue);
+    setDigitRaw(idx, (byte)rawValue);
     Serial.print("OK:raw digit=");
-    Serial.print(digitIndex);
+    Serial.print(idx);
     Serial.print(" value=");
     Serial.println(rawValue);
     return;
@@ -240,14 +273,21 @@ void processCommand() {
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
-  pinMode(SRCK, OUTPUT);
-  pinMode(SERIN, OUTPUT);
-  pinMode(RCK, OUTPUT);
-  digitalWrite(SRCK, LOW);
-  digitalWrite(SERIN, LOW);
-  digitalWrite(RCK, LOW);
+
+  pinMode(SRCK1, OUTPUT); pinMode(SERIN1, OUTPUT); pinMode(RCK1, OUTPUT);
+  pinMode(SRCK2, OUTPUT); pinMode(SERIN2, OUTPUT); pinMode(RCK2, OUTPUT);
+  digitalWrite(SRCK1, LOW); digitalWrite(SERIN1, LOW); digitalWrite(RCK1, LOW);
+  digitalWrite(SRCK2, LOW); digitalWrite(SERIN2, LOW); digitalWrite(RCK2, LOW);
+
+  for (int i = 0; i < TOTAL_DIGITS; i++) displayBuf[i] = 0;
   safeDelay(1000);
-  clearDisplay();
+
+  // Show 8 on first digit of each chain to verify wiring on boot
+  Serial.println("Boot: showing 8 on digit 0 (chain1) and digit 9 (chain2)...");
+  displayBuf[0] = SEGS[8];
+  displayBuf[NUM_DIGITS1] = SEGS[8];
+  refreshDisplay();
+
   printHelp();
 }
 

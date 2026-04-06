@@ -36,7 +36,18 @@
       "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/lib/ShifterStr/ShifterStr.cpp\" warren@192.168.0.112:/tmp/scoreboard-sketch/scoreboard/lib/ShifterStr/ShifterStr.cpp)",
       "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/lib/ShifterStr/ShifterStr.h\" warren@192.168.0.112:/tmp/scoreboard-sketch/scoreboard/lib/ShifterStr/ShifterStr.h)",
       "Bash(scp \"C:/Users/warre/Downloads/software2016R2/software/software/scoreboard-v2/arduino/single_digit_test/single_digit_test.ino\" warren@192.168.0.112:/tmp/scoreboard-sketch/single_digit_test/single_digit_test.ino)",
-      "Bash(scp:*)"
+      "Bash(scp:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(\"C:/Users/warre/Downloads/arduino-cli_1.4.1_Windows_64bit/arduino-cli.exe\" board:*)",
+      "Bash(\"C:/Users/warre/Downloads/arduino-cli_1.4.1_Windows_64bit/arduino-cli.exe\" core:*)",
+      "Bash(\"C:/Users/warre/Downloads/arduino-cli_1.4.1_Windows_64bit/arduino-cli.exe\" compile:*)",
+      "Bash(powershell -Command \"$port = New-Object System.IO.Ports.SerialPort COM3,57600; $port.Open\\(\\); Start-Sleep -Milliseconds 2000; $port.Write\\('1#'\\); Start-Sleep -Milliseconds 3000; $response = $port.ReadExisting\\(\\); $port.Close\\(\\); Write-Output $response\")",
+      "Bash(powershell -File - <<'PS1'\n$port = New-Object System.IO.Ports.SerialPort\\(\"COM3\", 57600\\)\n$port.Open\\(\\)\nStart-Sleep -Milliseconds 2000\n$port.Write\\(\"1#\"\\)\nStart-Sleep -Milliseconds 3000\n$response = $port.ReadExisting\\(\\)\n$port.Close\\(\\)\nWrite-Output $response\nPS1)",
+      "Bash(powershell -File - <<'PS1'\n$port = New-Object System.IO.Ports.SerialPort\\(\"COM3\", 57600\\)\n$port.DtrEnable = $true\n$port.Open\\(\\)\nStart-Sleep -Milliseconds 2000\n$boot = $port.ReadExisting\\(\\)\nWrite-Output \"Boot: $boot\"\n$port.Write\\(\"1#\"\\)\nStart-Sleep -Milliseconds 3000\n$r1 = $port.ReadExisting\\(\\)\nWrite-Output \"After 1#: $r1\"\n$port.Write\\(\"0#\"\\)\nStart-Sleep -Milliseconds 2000\n$r0 = $port.ReadExisting\\(\\)\nWrite-Output \"After 0#: $r0\"\n$port.Write\\(\"2#\"\\)\nStart-Sleep -Milliseconds 3000\n$r2 = $port.ReadExisting\\(\\)\nWrite-Output \"After 2#: $r2\"\n$port.Close\\(\\)\nPS1)",
+      "Bash(powershell -File - <<'PS1'\n$port = New-Object System.IO.Ports.SerialPort\\(\"COM3\", 57600\\)\n$port.DtrEnable = $true\n$port.Open\\(\\)\nStart-Sleep -Milliseconds 2000\n$boot = $port.ReadExisting\\(\\)\nWrite-Output \"Boot: $boot\"\n$port.Write\\(\"t#\"\\)\nStart-Sleep -Milliseconds 6000\n$r = $port.ReadExisting\\(\\)\nWrite-Output \"Response: $r\"\n$port.Close\\(\\)\nPS1)"
     ]
   }
 }

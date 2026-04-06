@@ -3,9 +3,9 @@
 //   SERIN -> D3
 //   RCK   -> D2
 
-#define SRCK 4
+#define SRCK 2
 #define SERIN 3
-#define RCK 2
+#define RCK 4
 #define NUM_DIGITS 6
 #define SERIAL_BAUD 57600
 

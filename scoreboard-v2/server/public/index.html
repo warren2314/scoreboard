@@ -4,13 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Scoreboard - WOSCC</title>
+  <title>Droylsden Cricket Club Scoreboard</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div class="header">
-    <h1>Westbury on Severn Scoreboard</h1>
-    <div class="subtitle">Cricket Club Scorer</div>
+    <img src="img/crest.png" alt="Droylsden CC Crest" class="club-crest">
+    <h1>Droylsden Cricket Club</h1>
+    <div class="subtitle">Scoreboard</div>
   </div>
 
   <div class="token-input">
@@ -18,9 +19,24 @@
     <input type="password" id="token" placeholder="Enter scorer token">
   </div>
 
-  <div class="score-grid">
+  <div class="score-grid top-row">
+    <div class="field" id="field-batsmanA">
+      <div class="field-label">Batsman A</div>
+      <div class="digits"></div>
+    </div>
     <div class="field" id="field-total">
       <div class="field-label">Total</div>
+      <div class="digits"></div>
+    </div>
+    <div class="field" id="field-batsmanB">
+      <div class="field-label">Batsman B</div>
+      <div class="digits"></div>
+    </div>
+  </div>
+
+  <div class="score-grid bottom-row">
+    <div class="field" id="field-target">
+      <div class="field-label">Target</div>
       <div class="digits"></div>
     </div>
     <div class="field" id="field-wickets">
@@ -31,16 +47,8 @@
       <div class="field-label">Overs</div>
       <div class="digits"></div>
     </div>
-    <div class="field" id="field-batsmanA">
-      <div class="field-label">Batsman A</div>
-      <div class="digits"></div>
-    </div>
-    <div class="field" id="field-batsmanB">
-      <div class="field-label">Batsman B</div>
-      <div class="digits"></div>
-    </div>
-    <div class="field" id="field-target">
-      <div class="field-label">Target</div>
+    <div class="field" id="field-dls">
+      <div class="field-label">DLS Score</div>
       <div class="digits"></div>
     </div>
   </div>
@@ -57,7 +65,7 @@
   </div>
 
   <div class="footer">
-    Westbury on Severn Cricket Club &mdash; www.woscc.org.uk
+    Droylsden Cricket Club &mdash; <a href="https://droylsdencc.co.uk" target="_blank">droylsdencc.co.uk</a>
   </div>
 
   <script src="js/app.js"></script>

@@ -5,9 +5,9 @@
 // Step 1 = Q0 lit, Step 2 = Q1 lit, ... Step 8 = Q7 lit
 // The LED on pin 13 blinks the step number (1 blink = step 1, etc.)
 
-#define SRCK1 4
+#define SRCK1 2
 #define SERIN1 3
-#define RCK1 2
+#define RCK1 4
 #define SRCK2 7
 #define SERIN2 6
 #define RCK2 5
