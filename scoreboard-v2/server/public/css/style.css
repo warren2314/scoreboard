@@ -148,6 +148,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  white-space: pre-line;
+  line-height: 1.6;
 }
 .status-bar.error {
   color: var(--danger);

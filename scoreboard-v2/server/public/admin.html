@@ -36,6 +36,12 @@
       <label for="pc-api-token">API Token:</label>
       <input type="password" id="pc-api-token" placeholder="Your Play Cricket API token">
     </div>
+    <div class="token-input" style="margin-top:8px">
+      <label for="pc-dry-run" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="pc-dry-run">
+        Dry Run (fetch &amp; log only &mdash; do NOT update scoreboard)
+      </label>
+    </div>
     <div class="admin-actions" style="margin-top:0">
       <button class="admin-btn" id="btn-pc-start">Start Sync</button>
       <button class="admin-btn" id="btn-pc-stop">Stop Sync</button>
@@ -118,6 +124,7 @@
     document.getElementById('btn-pc-start').addEventListener('click', async () => {
       const matchId  = document.getElementById('pc-match-id').value.trim();
       const apiToken = document.getElementById('pc-api-token').value.trim();
+      const dryRun   = document.getElementById('pc-dry-run').checked;
       if (!matchId || !apiToken) {
         showPcStatus('Enter a Match ID and API Token', true);
         return;
@@ -128,7 +135,7 @@
         const res  = await fetch('/api/playcricket/start', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ matchId, apiToken })
+          body: JSON.stringify({ matchId, apiToken, dryRun })
         });
         const data = await res.json();
         showPcStatus(data.message || data.error, !data.ok);
@@ -163,9 +170,18 @@
         if (data.playCricket) {
           const pc = data.playCricket;
           if (pc.syncing) {
-            const t = pc.lastSync ? new Date(pc.lastSync).toLocaleTimeString() : 'pending…';
-            const err = pc.lastError ? ` | ${pc.lastError}` : '';
-            showPcStatus(`Syncing match ${pc.matchId} — last update: ${t}${err}`, !!pc.lastError);
+            const t    = pc.lastSync ? new Date(pc.lastSync).toLocaleTimeString() : 'pending...';
+            const err  = pc.lastError ? `\nERROR: ${pc.lastError}` : '';
+            const mode = pc.dryRun ? ' [DRY RUN - scoreboard not updated]' : '';
+            let scoreStr = '';
+            if (pc.lastScore) {
+              const s = pc.lastScore;
+              const fmt = v => v.replace(/-/g, '_');
+              scoreStr = `\nBat A: ${fmt(s.batsmanA)}  |  Total: ${fmt(s.total)}  |  Bat B: ${fmt(s.batsmanB)}` +
+                         `\nWickets: ${fmt(s.wickets)}  |  Overs: ${fmt(s.overs)}  |  Target: ${fmt(s.target)}  |  DLS: ${fmt(s.dls || '---')}`;
+            }
+            showPcStatus(`Syncing match ${pc.matchId}${mode}\nLast update: ${t}${err}${scoreStr}`, !!pc.lastError);
+            document.getElementById('pc-dry-run').checked = pc.dryRun;
           }
         }
       } catch {}

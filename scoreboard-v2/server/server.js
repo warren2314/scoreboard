@@ -120,8 +120,11 @@ const pcState = {
   matchId: null,
   apiToken: null,
   syncing: false,
+  dryRun: false,
   lastSync: null,
   lastError: null,
+  lastCmd: null,
+  lastScore: null,
   intervalId: null,
   pollSeconds: parseInt(process.env.PC_POLL_SECONDS || '60', 10)
 };
@@ -200,38 +203,46 @@ async function doPlayCricketSync() {
     const json = await fetchPlayCricket(pcState.matchId, pcState.apiToken);
     const score = parsePlayCricketScore(json);
 
-    // Update in-memory state so /api/status reflects the synced values
-    state.total    = score.total;
-    state.wickets  = score.wickets;
-    state.overs    = score.overs;
-    state.batsmanA = score.batsmanA;
-    state.batsmanB = score.batsmanB;
-    state.target   = score.target;
-    state.dls      = score.dls || '---';
-
-    // Send to Arduino
     const cmd = `4,${score.batsmanA},${score.total},${score.batsmanB},${score.target},${score.wickets},${score.overs},${score.dls || '---'}#`;
-    sendToArduino(cmd);
+    pcState.lastCmd   = cmd;
+    pcState.lastScore = score;
+
+    if (pcState.dryRun) {
+      console.log(`[PlayCricket] DRY RUN - would send: ${cmd}`);
+      console.log(`[PlayCricket] DRY RUN - score: ${JSON.stringify(score)}`);
+    } else {
+      // Update in-memory state so /api/status reflects the synced values
+      state.total    = score.total;
+      state.wickets  = score.wickets;
+      state.overs    = score.overs;
+      state.batsmanA = score.batsmanA;
+      state.batsmanB = score.batsmanB;
+      state.target   = score.target;
+      state.dls      = score.dls || '---';
+      sendToArduino(cmd);
+      console.log(`[PlayCricket] Synced: ${JSON.stringify(score)}`);
+    }
 
     pcState.lastSync  = new Date().toISOString();
     pcState.lastError = null;
-    console.log(`[PlayCricket] Synced: ${JSON.stringify(score)}`);
   } catch (err) {
     pcState.lastError = err.message;
     console.error(`[PlayCricket] Sync error: ${err.message}`);
   }
 }
 
-function startPlayCricketSync(matchId, apiToken) {
+function startPlayCricketSync(matchId, apiToken, dryRun = false) {
   stopPlayCricketSync();
   pcState.matchId   = matchId;
   pcState.apiToken  = apiToken;
   pcState.syncing   = true;
+  pcState.dryRun    = dryRun;
   pcState.lastSync  = null;
   pcState.lastError = null;
-  doPlayCricketSync(); // fetch immediately
+  pcState.lastCmd   = null;
+  doPlayCricketSync();
   pcState.intervalId = setInterval(doPlayCricketSync, pcState.pollSeconds * 1000);
-  console.log(`[PlayCricket] Sync started for match ${matchId} (every ${pcState.pollSeconds}s)`);
+  console.log(`[PlayCricket] Sync started for match ${matchId} (every ${pcState.pollSeconds}s, dryRun=${dryRun})`);
 }
 
 function stopPlayCricketSync() {
@@ -393,9 +404,11 @@ app.get('/api/status', (req, res) => {
     ...state,
     playCricket: {
       syncing:     pcState.syncing,
+      dryRun:      pcState.dryRun,
       matchId:     pcState.matchId,
       lastSync:    pcState.lastSync,
       lastError:   pcState.lastError,
+      lastScore:   pcState.lastScore,
       pollSeconds: pcState.pollSeconds
     }
   });
@@ -406,8 +419,10 @@ app.post('/api/playcricket/start', requireAdmin, (req, res) => {
   if (!matchId || !apiToken) {
     return res.status(400).json({ error: 'matchId and apiToken are required' });
   }
-  startPlayCricketSync(String(matchId), String(apiToken));
-  res.json({ ok: true, message: `Play Cricket sync started for match ${matchId} (every ${pcState.pollSeconds}s)` });
+  const dryRun = req.body.dryRun === true;
+  startPlayCricketSync(String(matchId), String(apiToken), dryRun);
+  const mode = dryRun ? ' [DRY RUN - scoreboard will NOT be updated]' : '';
+  res.json({ ok: true, message: `Play Cricket sync started for match ${matchId} (every ${pcState.pollSeconds}s)${mode}` });
 });
 
 app.post('/api/playcricket/stop', requireAdmin, (req, res) => {
