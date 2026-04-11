@@ -271,3 +271,28 @@ body {
   color: var(--text);
   font-size: 0.9rem;
 }
+.token-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: center;
+}
+.token-status.checking {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+.token-status.ok {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.token-status.error {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: var(--danger-dim);
+}

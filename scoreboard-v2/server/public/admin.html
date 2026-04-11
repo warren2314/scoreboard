@@ -16,6 +16,7 @@
   <div class="token-input">
     <label for="token">Admin Token:</label>
     <input type="password" id="token" placeholder="Enter token">
+    <span id="token-status" class="token-status">Enter token</span>
   </div>
 
   <div class="admin-actions">
@@ -64,10 +65,51 @@
 
   <script>
     const statusBar = document.getElementById('status');
+    const tokenInput = document.getElementById('token');
+    const tokenStatus = document.getElementById('token-status');
+
+    // Restore saved token on page load
+    const savedAdminToken = localStorage.getItem('adminToken');
+    if (savedAdminToken) tokenInput.value = savedAdminToken;
 
     function getToken() {
-      return document.getElementById('token').value;
+      return tokenInput.value;
     }
+
+    // Live token verification — runs on input (debounced) and on load
+    let tokenCheckTimer = null;
+    async function verifyToken() {
+      const token = getToken();
+      if (!token) {
+        tokenStatus.textContent = 'Enter token';
+        tokenStatus.className = 'token-status';
+        return;
+      }
+      tokenStatus.textContent = 'Checking...';
+      tokenStatus.className = 'token-status checking';
+      try {
+        const res = await fetch('/api/auth/check', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.valid) {
+          tokenStatus.textContent = 'Active';
+          tokenStatus.className = 'token-status ok';
+          localStorage.setItem('adminToken', token);
+        } else {
+          tokenStatus.textContent = 'Invalid';
+          tokenStatus.className = 'token-status error';
+        }
+      } catch {
+        tokenStatus.textContent = 'Offline';
+        tokenStatus.className = 'token-status error';
+      }
+    }
+    tokenInput.addEventListener('input', () => {
+      clearTimeout(tokenCheckTimer);
+      tokenCheckTimer = setTimeout(verifyToken, 400);
+    });
+    verifyToken();
 
     function showStatus(msg, isError) {
       statusBar.textContent = msg;

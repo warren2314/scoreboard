@@ -263,6 +263,13 @@ function requireAdmin(req, res, next) {
 
 // --- Routes ---
 
+// Verify a token without exposing it — used by the UI to show a live "connected" state
+app.get('/api/auth/check', (req, res) => {
+  const auth = req.headers.authorization;
+  const valid = auth === `Bearer ${ADMIN_TOKEN}`;
+  res.json({ valid });
+});
+
 app.post('/api/score', requireAdmin, (req, res) => {
   const { total, wickets, overs, batsmanA, batsmanB, target, dls } = req.body;
 
