@@ -124,8 +124,10 @@ async function doSend() {
       body: JSON.stringify(body)
     });
     const data = await res.json();
+    if (res.status !== 401) {
+      localStorage.setItem('authToken', token);
+    }
     if (data.ok) {
-      localStorage.setItem('scorerToken', token);
       statusBar.textContent = data.message;
       statusBar.className = 'status-bar ok';
     } else {
@@ -157,7 +159,7 @@ async function pollStatus() {
 // Init
 document.addEventListener('DOMContentLoaded', () => {
   // Restore saved token so the scorer doesn't re-enter it every visit
-  const saved = localStorage.getItem('scorerToken');
+  const saved = localStorage.getItem('authToken');
   if (saved) document.getElementById('token').value = saved;
 
   for (const name of Object.keys(score)) {
