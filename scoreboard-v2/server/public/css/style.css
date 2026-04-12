@@ -53,13 +53,22 @@ body {
   margin-top: 0.25rem;
 }
 
-/* Score grid */
+/* Score grid — 3 columns, 3 rows
+   Row 1: Bat A | Total   | Bat B
+   Row 2: Target | (gap)  | Wickets
+   Row 3: DLS   | (gap)   | Overs
+*/
 .score-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: auto auto auto;
   gap: 0.75rem;
   max-width: 480px;
-  margin: 0 auto;
+  margin: 0 auto 0.75rem;
+}
+
+.field-empty {
+  /* intentionally blank — keeps the grid shape */
 }
 
 /* Score field card */

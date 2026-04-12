@@ -17,38 +17,51 @@
   <div class="token-input">
     <label for="token">Token:</label>
     <input type="password" id="token" placeholder="Enter scorer token">
+    <span id="token-status" class="token-status">–</span>
   </div>
 
-  <div class="score-grid top-row">
+  <!-- 3×3 scoreboard grid
+       Bat A    |   Total   |   Bat B
+       Target   |           |   Wickets
+       DLS      |           |   Overs
+  -->
+  <div class="score-grid">
     <div class="field" id="field-batsmanA">
-      <div class="field-label">Batsman A</div>
+      <div class="field-label">Bat A</div>
       <div class="digits"></div>
     </div>
+
     <div class="field" id="field-total">
       <div class="field-label">Total</div>
       <div class="digits"></div>
     </div>
+
     <div class="field" id="field-batsmanB">
-      <div class="field-label">Batsman B</div>
+      <div class="field-label">Bat B</div>
       <div class="digits"></div>
     </div>
-  </div>
 
-  <div class="score-grid bottom-row">
     <div class="field" id="field-target">
       <div class="field-label">Target</div>
       <div class="digits"></div>
     </div>
+
+    <div class="field-empty"></div>
+
     <div class="field" id="field-wickets">
       <div class="field-label">Wickets</div>
       <div class="digits"></div>
     </div>
-    <div class="field" id="field-overs">
-      <div class="field-label">Overs</div>
-      <div class="digits"></div>
-    </div>
+
     <div class="field" id="field-dls">
       <div class="field-label">DLS Score</div>
+      <div class="digits"></div>
+    </div>
+
+    <div class="field-empty"></div>
+
+    <div class="field" id="field-overs">
+      <div class="field-label">Overs</div>
       <div class="digits"></div>
     </div>
   </div>
@@ -62,6 +75,8 @@
 
   <div class="nav">
     <a href="/admin">Admin Panel</a>
+    &nbsp;·&nbsp;
+    <a href="/digit-test">Diagnostics</a>
   </div>
 
   <div class="footer">
