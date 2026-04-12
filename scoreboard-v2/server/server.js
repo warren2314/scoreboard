@@ -312,12 +312,12 @@ app.post('/api/test', (req, res) => {
   res.json({ ok: true, message: 'Test mode activated' });
 });
 
-// Single-digit test endpoint — works with single_digit_test.ino
-// POST /api/digit  body: { index: 0-8, glyph: "0"-"9" or "-" }
+// Single-digit test endpoint
+// POST /api/digit  body: { index: 0-17, glyph: "0"-"9" or "-" }
 app.post('/api/digit', (req, res) => {
   const { index, glyph } = req.body;
-  if (typeof index !== 'number' || index < 0 || index > 8) {
-    return res.status(400).json({ error: 'index must be 0-8' });
+  if (typeof index !== 'number' || index < 0 || index > 17) {
+    return res.status(400).json({ error: 'index must be 0-17' });
   }
   const g = String(glyph);
   if (g.length !== 1 || (!(g >= '0' && g <= '9') && g !== '-')) {
@@ -354,8 +354,8 @@ app.post('/api/digit/walk', (req, res) => {
 
 app.post('/api/digit/scan', (req, res) => {
   const { index } = req.body;
-  if (typeof index !== 'number' || index < 0 || index > 8) {
-    return res.status(400).json({ error: 'index must be 0-8' });
+  if (typeof index !== 'number' || index < 0 || index > 17) {
+    return res.status(400).json({ error: 'index must be 0-17' });
   }
   const cmd = `scan,${index}#`;
   const sent = sendToArduino(cmd);

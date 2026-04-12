@@ -1,62 +1,61 @@
-// Droylsden Cricket Club - Production Scoreboard Sketch
+// Droylsden Cricket Club — Production Scoreboard Sketch (with built-in diagnostics)
 //
-// 3 chains, 6 digits each, 18 digits total.
-// All chains use confirmed pin order: SRCK, SERIN, RCK
+// Hardware: 3 chains of TPIC6B595 shift registers, 6 digits per chain = 18 total
 //
-// Chain 1 (pins 2,3,4) — 6 digits:
-//   BatA[0] BatA[1] BatA[2] | Wkts[0] | Overs[0] Overs[1]
+//   Chain 1 (SRCK=D2, SERIN=D3, RCK=D4) — 6 digits
+//     Index 0-2: BatA     Index 3: Wkts     Index 4-5: Overs
 //
-// Chain 2 (pins 5,6,7) — 6 digits:
-//   Total[0] Total[1] Total[2] | BatB[0] BatB[1] BatB[2]
+//   Chain 2 (SRCK=D5, SERIN=D6, RCK=D7) — 6 digits
+//     Index 6-8: Total    Index 9-11: BatB
 //
-// Chain 3 (pins 8,9,10) — 6 digits:
-//   Target[0] Target[1] Target[2] | DLS[0] DLS[1] DLS[2]
+//   Chain 3 (SRCK=D8, SERIN=D9, RCK=D10) — 6 digits
+//     Index 12-14: Target  Index 15-17: DLS
 //
-// Command format (57600 baud, # terminated):
+// Production command (57600 baud, # terminated):
 //   4,<batA(3)>,<total(3)>,<batB(3)>,<target(3)>,<wkts(1)>,<overs(2)>,<dls(3)>#
 //   Example: 4,--5,123,--8,--0,3,12,--0#
 //
-// Other commands:
-//   5#        test mode (all 8s)
-//   clear#    all digits off
-//   status#   print current values
+// Diagnostic commands (all work from web admin serial console too):
+//   5#               test mode — all digits show 8
+//   alltest#         same as 5#
+//   clear#           all digits off
+//   walk#            walk an 8 across all 18 digits (2s each), prints current index
+//   status#          print last known score values
+//   digit,X,Y#       set digit X (0-17) to glyph Y (0-9 or - for blank)
+//   scan,X#          slowly cycle digit X through 0-9
+//   raw,X,Y#         set digit X to raw segment byte Y (0-255) for wiring checks
+//   help#            print this message
 
 #include <stdlib.h>
 #include <string.h>
 
-// Chain 1
+// Chain 1 — BatA, Wkts, Overs
 #define SRCK1  2
 #define SERIN1 3
 #define RCK1   4
 
-// Chain 2
+// Chain 2 — Total, BatB
 #define SRCK2  5
 #define SERIN2 6
 #define RCK2   7
 
-// Chain 3
+// Chain 3 — Target, DLS
 #define SRCK3  8
 #define SERIN3 9
 #define RCK3   10
 
 #define DIGITS_PER_CHAIN 6
-#define SERIAL_BAUD 57600
+#define TOTAL_DIGITS     18   // 3 x 6
+#define SERIAL_BAUD      57600
 
-// 7-segment encoding: segments a-g, LSB first
-// Confirmed working on this hardware
+// 7-segment encoding, LSB-first, confirmed working on this hardware
+//                      0    1    2    3    4    5    6    7    8    9
 const byte SEGS[] = {252, 96, 218, 242, 102, 182, 190, 224, 254, 230};
 
-// Display buffers — one per chain
-byte chain1[DIGITS_PER_CHAIN];  // BatA(3) + Wkts(1) + Overs(2)
-byte chain2[DIGITS_PER_CHAIN];  // Total(3) + BatB(3)
-byte chain3[DIGITS_PER_CHAIN];  // Target(3) + DLS(3)
+// Flat display buffer — indices 0-5 = chain1, 6-11 = chain2, 12-17 = chain3
+byte displayBuf[TOTAL_DIGITS];
 
-// Serial command buffer
-char cmdBuf[64];
-uint8_t cmdLen = 0;
-bool discardingCmd = false;
-
-// Current score strings (for status command)
+// Last-known score strings (for status command)
 char batA[4]   = "--0";
 char total[4]  = "--0";
 char batB[4]   = "--0";
@@ -65,7 +64,14 @@ char wkts[2]   = "0";
 char overs[3]  = "-0";
 char dls[4]    = "--0";
 
-// --- Shift register drivers ---
+// Serial command buffer
+char    cmdBuf[64];
+uint8_t cmdLen = 0;
+bool    discardingCmd = false;
+
+// ---------------------------------------------------------------------------
+// Low-level shift register drivers
+// ---------------------------------------------------------------------------
 
 byte encodeGlyph(char c) {
   if (c == '-') return 0;
@@ -74,7 +80,7 @@ byte encodeGlyph(char c) {
 }
 
 void shiftByte(int srckPin, int serinPin, byte value) {
-  for (byte bit = 0; bit < 8; bit++) {
+  for (byte b = 0; b < 8; b++) {
     digitalWrite(srckPin, LOW);
     digitalWrite(serinPin, (value & 0x01) ? HIGH : LOW);
     delayMicroseconds(100);
@@ -93,103 +99,165 @@ void latch(int rckPin) {
   digitalWrite(rckPin, LOW);
 }
 
-void sendChain(int srckPin, int serinPin, int rckPin, const byte* buf) {
+// Shift one chain's worth of bytes from the flat buffer and latch.
+// Shifts in reverse (last index first) so index 'start' ends up at the
+// last physical register. Run walk# to confirm actual physical order.
+void sendChain(int srckPin, int serinPin, int rckPin, int start) {
   digitalWrite(rckPin, LOW);
-  for (int i = DIGITS_PER_CHAIN - 1; i >= 0; i--) {
-    shiftByte(srckPin, serinPin, buf[i]);
+  for (int i = start + DIGITS_PER_CHAIN - 1; i >= start; i--) {
+    shiftByte(srckPin, serinPin, displayBuf[i]);
   }
   latch(rckPin);
 }
 
 void refreshAll() {
-  sendChain(SRCK1, SERIN1, RCK1, chain1);
-  sendChain(SRCK2, SERIN2, RCK2, chain2);
-  sendChain(SRCK3, SERIN3, RCK3, chain3);
+  sendChain(SRCK1, SERIN1, RCK1, 0);
+  sendChain(SRCK2, SERIN2, RCK2, 6);
+  sendChain(SRCK3, SERIN3, RCK3, 12);
 }
 
-// --- Display helpers ---
+// ---------------------------------------------------------------------------
+// Display operations
+// ---------------------------------------------------------------------------
 
 void clearAll() {
-  memset(chain1, 0, sizeof(chain1));
-  memset(chain2, 0, sizeof(chain2));
-  memset(chain3, 0, sizeof(chain3));
+  memset(displayBuf, 0, sizeof(displayBuf));
   refreshAll();
 }
 
-void testMode() {
-  // Show 8 on all digits
-  memset(chain1, SEGS[8], sizeof(chain1));
-  memset(chain2, SEGS[8], sizeof(chain2));
-  memset(chain3, SEGS[8], sizeof(chain3));
+void allTest() {
+  memset(displayBuf, SEGS[8], sizeof(displayBuf));
   refreshAll();
+  Serial.println("OK:alltest - all 18 digits show 8");
 }
 
-// Map score strings into display buffers and refresh
+void setDigitRaw(int idx, byte raw) {
+  if (idx >= 0 && idx < TOTAL_DIGITS) {
+    displayBuf[idx] = raw;
+    refreshAll();
+  }
+}
+
+void setDigitGlyph(int idx, char g) {
+  setDigitRaw(idx, encodeGlyph(g));
+}
+
+// Map score strings into display buffer and refresh
 void applyScore() {
-  // Chain 1: BatA(0-2) | Wkts(3) | Overs(4-5)
-  chain1[0] = encodeGlyph(batA[0]);
-  chain1[1] = encodeGlyph(batA[1]);
-  chain1[2] = encodeGlyph(batA[2]);
-  chain1[3] = encodeGlyph(wkts[0]);
-  chain1[4] = encodeGlyph(overs[0]);
-  chain1[5] = encodeGlyph(overs[1]);
+  // Chain 1 — indices 0-5: BatA(0-2), Wkts(3), Overs(4-5)
+  displayBuf[0] = encodeGlyph(batA[0]);
+  displayBuf[1] = encodeGlyph(batA[1]);
+  displayBuf[2] = encodeGlyph(batA[2]);
+  displayBuf[3] = encodeGlyph(wkts[0]);
+  displayBuf[4] = encodeGlyph(overs[0]);
+  displayBuf[5] = encodeGlyph(overs[1]);
 
-  // Chain 2: Total(0-2) | BatB(3-5)
-  chain2[0] = encodeGlyph(total[0]);
-  chain2[1] = encodeGlyph(total[1]);
-  chain2[2] = encodeGlyph(total[2]);
-  chain2[3] = encodeGlyph(batB[0]);
-  chain2[4] = encodeGlyph(batB[1]);
-  chain2[5] = encodeGlyph(batB[2]);
+  // Chain 2 — indices 6-11: Total(6-8), BatB(9-11)
+  displayBuf[6]  = encodeGlyph(total[0]);
+  displayBuf[7]  = encodeGlyph(total[1]);
+  displayBuf[8]  = encodeGlyph(total[2]);
+  displayBuf[9]  = encodeGlyph(batB[0]);
+  displayBuf[10] = encodeGlyph(batB[1]);
+  displayBuf[11] = encodeGlyph(batB[2]);
 
-  // Chain 3: Target(0-2) | DLS(3-5)
-  chain3[0] = encodeGlyph(target[0]);
-  chain3[1] = encodeGlyph(target[1]);
-  chain3[2] = encodeGlyph(target[2]);
-  chain3[3] = encodeGlyph(dls[0]);
-  chain3[4] = encodeGlyph(dls[1]);
-  chain3[5] = encodeGlyph(dls[2]);
+  // Chain 3 — indices 12-17: Target(12-14), DLS(15-17)
+  displayBuf[12] = encodeGlyph(target[0]);
+  displayBuf[13] = encodeGlyph(target[1]);
+  displayBuf[14] = encodeGlyph(target[2]);
+  displayBuf[15] = encodeGlyph(dls[0]);
+  displayBuf[16] = encodeGlyph(dls[1]);
+  displayBuf[17] = encodeGlyph(dls[2]);
 
   refreshAll();
 }
 
-// --- Command parser ---
+// ---------------------------------------------------------------------------
+// Diagnostic helpers
+// ---------------------------------------------------------------------------
 
-// Copy exactly len chars from src into dest, null terminate
-// Returns false if src doesn't have enough characters
-bool extractField(const char* src, char* dest, int len) {
-  if ((int)strlen(src) < len) return false;
-  strncpy(dest, src, len);
-  dest[len] = '\0';
-  return true;
+void safeDelay(unsigned long ms) {
+  unsigned long start = millis();
+  while (millis() - start < ms) yield();
 }
+
+void walkDigits() {
+  Serial.println("Walking 8 across all 18 digits...");
+  for (int i = 0; i < TOTAL_DIGITS; i++) {
+    memset(displayBuf, 0, sizeof(displayBuf));
+    displayBuf[i] = SEGS[8];
+    refreshAll();
+    Serial.print("digit="); Serial.println(i);
+    safeDelay(2000);
+  }
+  memset(displayBuf, 0, sizeof(displayBuf));
+  refreshAll();
+  Serial.println("OK:walk done");
+}
+
+void scanDigit(int idx) {
+  if (idx < 0 || idx >= TOTAL_DIGITS) {
+    Serial.println("ERR:index out of range (0-17)");
+    return;
+  }
+  Serial.print("Scanning digit "); Serial.println(idx);
+  for (char g = '0'; g <= '9'; g++) {
+    displayBuf[idx] = encodeGlyph(g);
+    refreshAll();
+    Serial.print("glyph="); Serial.println(g);
+    safeDelay(2000);
+  }
+  displayBuf[idx] = 0;
+  refreshAll();
+  Serial.println("OK:scan done");
+}
+
+void printStatus() {
+  Serial.print("batA=");    Serial.print(batA);
+  Serial.print(" total=");  Serial.print(total);
+  Serial.print(" batB=");   Serial.print(batB);
+  Serial.print(" target="); Serial.print(target);
+  Serial.print(" wkts=");   Serial.print(wkts);
+  Serial.print(" overs=");  Serial.print(overs);
+  Serial.print(" dls=");    Serial.println(dls);
+}
+
+void printHelp() {
+  Serial.println("=== Droylsden CC Scoreboard ready ===");
+  Serial.println("Chain1 D2/3/4  idx 0-5   BatA(0-2) Wkts(3) Overs(4-5)");
+  Serial.println("Chain2 D5/6/7  idx 6-11  Total(6-8) BatB(9-11)");
+  Serial.println("Chain3 D8/9/10 idx 12-17 Target(12-14) DLS(15-17)");
+  Serial.println("Production: 4,batA(3),total(3),batB(3),target(3),wkts(1),overs(2),dls(3)#");
+  Serial.println("Diag: 5# alltest# clear# walk# status# help#");
+  Serial.println("      digit,<0-17>,<0-9|->   scan,<0-17>   raw,<0-17>,<0-255>");
+}
+
+// ---------------------------------------------------------------------------
+// Command parser
+// ---------------------------------------------------------------------------
 
 void processCommand() {
   if (cmdLen == 0) return;
 
-  // Production score command: 4,batA,total,batB,target,wkts,overs,dls#
+  // Production score update: 4,batA(3),total(3),batB(3),target(3),wkts(1),overs(2),dls(3)#
   if (cmdBuf[0] == '4' && cmdBuf[1] == ',') {
+    // Split by comma into up to 7 fields (everything after "4,")
     char* p = cmdBuf + 2;
-    char* fields[8];
-    int fieldCount = 0;
-    fields[fieldCount++] = p;
-    while (*p && fieldCount < 8) {
-      if (*p == ',') {
-        *p = '\0';
-        fields[fieldCount++] = p + 1;
-      }
+    char* fields[7];
+    int   count = 0;
+    fields[count++] = p;
+    while (*p && count < 7) {
+      if (*p == ',') { *p = '\0'; fields[count++] = p + 1; }
       p++;
     }
 
-    if (fieldCount < 7) {
-      Serial.println("ERR:bad score command, expected 4,batA(3),total(3),batB(3),target(3),wkts(1),overs(2),dls(3)");
+    if (count < 7) {
+      Serial.println("ERR:bad score cmd — need 4,batA(3),total(3),batB(3),target(3),wkts(1),overs(2),dls(3)#");
       return;
     }
-
     if (strlen(fields[0]) != 3 || strlen(fields[1]) != 3 || strlen(fields[2]) != 3 ||
-        strlen(fields[3]) != 3 || strlen(fields[4]) != 1 || strlen(fields[5]) != 2 ||
-        (fieldCount >= 8 && strlen(fields[6]) != 3) ) {
-      Serial.println("ERR:field length mismatch");
+        strlen(fields[3]) != 3 || strlen(fields[4]) != 1 ||
+        strlen(fields[5]) != 2 || strlen(fields[6]) != 3) {
+      Serial.println("ERR:field length mismatch — batA/total/batB/target/dls=3 wkts=1 overs=2");
       return;
     }
 
@@ -199,54 +267,87 @@ void processCommand() {
     strncpy(target, fields[3], 4);
     strncpy(wkts,   fields[4], 2);
     strncpy(overs,  fields[5], 3);
-    if (fieldCount >= 8) strncpy(dls, fields[6], 4);
+    strncpy(dls,    fields[6], 4);  // Fixed: was gated on fieldCount>=8, now always applied
 
     applyScore();
-    Serial.print("OK:score batA="); Serial.print(batA);
-    Serial.print(" total="); Serial.print(total);
-    Serial.print(" batB="); Serial.print(batB);
-    Serial.print(" target="); Serial.print(target);
-    Serial.print(" wkts="); Serial.print(wkts);
-    Serial.print(" overs="); Serial.print(overs);
-    Serial.print(" dls="); Serial.println(dls);
+    Serial.print("OK:score ");
+    printStatus();
     return;
   }
 
-  // Test mode: 5#
-  if (cmdBuf[0] == '5' && cmdLen == 1) {
-    testMode();
-    Serial.println("OK:test mode - all 8s");
+  // Test mode
+  if (strcmp(cmdBuf, "5") == 0 || strcmp(cmdBuf, "alltest") == 0) {
+    allTest();
     return;
   }
 
-  // Clear
   if (strcmp(cmdBuf, "clear") == 0) {
     clearAll();
     Serial.println("OK:clear");
     return;
   }
 
-  // Status
-  if (strcmp(cmdBuf, "status") == 0) {
-    Serial.print("batA="); Serial.print(batA);
-    Serial.print(" total="); Serial.print(total);
-    Serial.print(" batB="); Serial.print(batB);
-    Serial.print(" target="); Serial.print(target);
-    Serial.print(" wkts="); Serial.print(wkts);
-    Serial.print(" overs="); Serial.print(overs);
-    Serial.print(" dls="); Serial.println(dls);
+  if (strcmp(cmdBuf, "walk") == 0) {
+    walkDigits();
     return;
   }
 
-  Serial.print("ERR:unknown cmd ");
-  Serial.println(cmdBuf);
+  if (strcmp(cmdBuf, "status") == 0) {
+    printStatus();
+    return;
+  }
+
+  if (strcmp(cmdBuf, "help") == 0) {
+    printHelp();
+    return;
+  }
+
+  if (strncmp(cmdBuf, "digit,", 6) == 0) {
+    char* p = cmdBuf + 6;
+    int   idx = atoi(p);
+    p = strchr(p, ',');
+    if (!p || *(p + 1) == '\0') { Serial.println("ERR:bad digit command"); return; }
+    char g = *(p + 1);
+    if (idx < 0 || idx >= TOTAL_DIGITS) { Serial.println("ERR:index out of range (0-17)"); return; }
+    setDigitGlyph(idx, g);
+    Serial.print("OK:digit="); Serial.print(idx);
+    Serial.print(" glyph="); Serial.println(g);
+    return;
+  }
+
+  if (strncmp(cmdBuf, "scan,", 5) == 0) {
+    scanDigit(atoi(cmdBuf + 5));
+    return;
+  }
+
+  if (strncmp(cmdBuf, "raw,", 4) == 0) {
+    char* p = cmdBuf + 4;
+    int   idx = atoi(p);
+    p = strchr(p, ',');
+    if (!p || *(p + 1) == '\0') { Serial.println("ERR:bad raw command"); return; }
+    int val = atoi(p + 1);
+    if (idx < 0 || idx >= TOTAL_DIGITS || val < 0 || val > 255) {
+      Serial.println("ERR:args out of range");
+      return;
+    }
+    setDigitRaw(idx, (byte)val);
+    Serial.print("OK:raw digit="); Serial.print(idx);
+    Serial.print(" byte="); Serial.println(val);
+    return;
+  }
+
+  Serial.print("ERR:unknown command — "); Serial.println(cmdBuf);
+  Serial.println("Send help# for usage.");
 }
+
+// ---------------------------------------------------------------------------
+// Setup & loop
+// ---------------------------------------------------------------------------
 
 void setup() {
   Serial.begin(SERIAL_BAUD);
 
-  // Initialise all chain pins
-  int pins[] = {SRCK1, SERIN1, RCK1, SRCK2, SERIN2, RCK2, SRCK3, SERIN3, RCK3};
+  const int pins[] = {SRCK1, SERIN1, RCK1, SRCK2, SERIN2, RCK2, SRCK3, SERIN3, RCK3};
   for (int i = 0; i < 9; i++) {
     pinMode(pins[i], OUTPUT);
     digitalWrite(pins[i], LOW);
@@ -255,9 +356,7 @@ void setup() {
   delay(500);
   clearAll();
 
-  Serial.println("Droylsden CC Scoreboard ready");
-  Serial.println("Command: 4,batA(3),total(3),batB(3),target(3),wkts(1),overs(2),dls(3)#");
-  Serial.println("Other: 5# (test), clear#, status#");
+  printHelp();
 }
 
 void loop() {
@@ -271,11 +370,9 @@ void loop() {
       discardingCmd = false;
       cmdLen = 0;
     } else if (cmdLen < sizeof(cmdBuf) - 1) {
-      if (!discardingCmd) {
-        cmdBuf[cmdLen++] = c;
-      }
+      if (!discardingCmd) cmdBuf[cmdLen++] = c;
     } else {
-      Serial.println("ERR:cmd too long");
+      Serial.println("ERR:command too long");
       discardingCmd = true;
       cmdLen = 0;
     }
