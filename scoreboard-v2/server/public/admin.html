@@ -69,7 +69,7 @@
     const tokenStatus = document.getElementById('token-status');
 
     // Restore saved token on page load
-    const savedAdminToken = localStorage.getItem('adminToken');
+    const savedAdminToken = localStorage.getItem('authToken');
     if (savedAdminToken) tokenInput.value = savedAdminToken;
 
     function getToken() {
@@ -95,7 +95,7 @@
         if (data.valid) {
           tokenStatus.textContent = 'Active';
           tokenStatus.className = 'token-status ok';
-          localStorage.setItem('adminToken', token);
+          localStorage.setItem('authToken', token);
         } else {
           tokenStatus.textContent = 'Invalid';
           tokenStatus.className = 'token-status error';
