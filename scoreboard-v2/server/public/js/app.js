@@ -140,7 +140,7 @@ async function doSend() {
   }
 }
 
-// Poll serial connection status
+// Poll serial connection status and restore score state from server
 async function pollStatus() {
   try {
     const res = await fetch('/api/status');
@@ -151,13 +151,45 @@ async function pollStatus() {
       dot.classList.toggle('connected', data.serialConnected);
       label.textContent = data.serialConnected ? 'Arduino connected' : 'Arduino disconnected';
     }
+    return data;
   } catch {
     // ignore
   }
 }
 
+// Restore score object from server state (wire format → display format)
+function restoreFromServer(data) {
+  const map = {
+    batsmanA: data.batsmanA,
+    total:    data.total,
+    batsmanB: data.batsmanB,
+    target:   data.target,
+    wickets:  data.wickets,
+    overs:    data.overs,
+    dls:      data.dls
+  };
+  for (const [field, wire] of Object.entries(map)) {
+    if (wire && wire.length === score[field].length) {
+      score[field] = wire.split('').map(fromWire);
+    }
+  }
+}
+
+// Reset all scores to zero and send to board
+function newInnings() {
+  score.batsmanA = ['−', '−', '0'];
+  score.total    = ['−', '−', '0'];
+  score.batsmanB = ['−', '−', '0'];
+  score.target   = ['−', '−', '0'];
+  score.wickets  = ['0'];
+  score.overs    = ['−', '0'];
+  score.dls      = ['−', '−', '0'];
+  renderAll();
+  sendScore();
+}
+
 // Init
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // Restore saved token so the scorer doesn't re-enter it every visit
   const saved = localStorage.getItem('authToken');
   if (saved) document.getElementById('token').value = saved;
@@ -165,7 +197,18 @@ document.addEventListener('DOMContentLoaded', () => {
   for (const name of Object.keys(score)) {
     buildField(name);
   }
+
+  // Restore current score from server so a page refresh doesn't wipe the board
+  const data = await pollStatus();
+  if (data) restoreFromServer(data);
   renderAll();
-  pollStatus();
+
+  // New Innings button
+  document.getElementById('btn-new-innings').addEventListener('click', () => {
+    if (confirm('Reset all scores to zero and send to the board?')) {
+      newInnings();
+    }
+  });
+
   setInterval(pollStatus, 5000);
 });

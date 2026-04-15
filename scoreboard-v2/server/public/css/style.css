@@ -142,6 +142,30 @@ body {
   color: var(--border);
 }
 
+/* New Innings button */
+.innings-controls {
+  max-width: 480px;
+  margin: 1.25rem auto 0;
+  text-align: center;
+}
+
+.btn-new-innings {
+  background: var(--danger-dim);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  padding: 0.6rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+}
+
+.btn-new-innings:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
 /* Status bar */
 .status-bar {
   max-width: 480px;
