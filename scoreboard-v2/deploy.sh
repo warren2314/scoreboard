@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Deploy modernized cricket scoreboard to Raspberry Pi 3 B+
-# Deploys BOTH the Node.js server AND uploads the Arduino sketch
+# Deploy Droylsden CC cricket scoreboard to Raspberry Pi
+# Deploys: Node.js server, BT Scoreboard service, and Arduino sketch
 #
 # Usage:
 #   ./deploy.sh <pi-ip-address> [pi-username]
@@ -24,15 +24,16 @@ echo "=== Cricket Scoreboard v2 Deployment ==="
 echo "Target: ${PI_USER}@${PI_HOST}"
 echo ""
 
-# Step 1: Copy ALL files to Pi (server + arduino)
-echo "[1/4] Copying files to Pi..."
-ssh "${PI_USER}@${PI_HOST}" "mkdir -p /tmp/scoreboard-upload/arduino && sudo mkdir -p /opt/scoreboard"
+# Step 1: Copy ALL files to Pi (server + btscoreboard + arduino)
+echo "[1/5] Copying files to Pi..."
+ssh "${PI_USER}@${PI_HOST}" "mkdir -p /tmp/scoreboard-upload/arduino /tmp/scoreboard-upload/btscoreboard && sudo mkdir -p /opt/scoreboard"
 scp -r "${SCRIPT_DIR}/server/"* "${PI_USER}@${PI_HOST}:/tmp/scoreboard-upload/"
 scp -r "${SCRIPT_DIR}/arduino/"* "${PI_USER}@${PI_HOST}:/tmp/scoreboard-upload/arduino/"
+scp -r "${SCRIPT_DIR}/btscoreboard/"* "${PI_USER}@${PI_HOST}:/tmp/scoreboard-upload/btscoreboard/"
 scp "${SCRIPT_DIR}/scoreboard.service" "${PI_USER}@${PI_HOST}:/tmp/scoreboard.service"
 
 # Step 2: Install Node.js server
-echo "[2/4] Installing Node.js server..."
+echo "[2/5] Installing Node.js server..."
 ssh "${PI_USER}@${PI_HOST}" bash -s <<'REMOTE_SCRIPT'
 set -e
 
@@ -84,9 +85,40 @@ echo ""
 echo "--- Node.js server installed ---"
 REMOTE_SCRIPT
 
-# Step 3: Upload Arduino sketch from the Pi
+# Step 3: Install BT Scoreboard service
 echo ""
-echo "[3/4] Uploading Arduino sketch from Pi..."
+echo "[3/5] Installing BT Scoreboard service..."
+ssh "${PI_USER}@${PI_HOST}" bash -s <<'BT_SCRIPT'
+set -e
+
+echo "--- Installing Python BLE dependencies ---"
+sudo apt-get install -y python3-dbus python3-gi bluez 2>/dev/null
+
+echo "--- Installing btscoreboard.py ---"
+sudo mkdir -p /opt/btscoreboard
+sudo cp /tmp/scoreboard-upload/btscoreboard/btscoreboard.py /opt/btscoreboard/btscoreboard.py
+sudo chmod 755 /opt/btscoreboard/btscoreboard.py
+
+echo "--- Configuring Bluetooth (always discoverable) ---"
+sudo sed -i 's/^#*DiscoverableTimeout\s*=.*/DiscoverableTimeout = 0/' /etc/bluetooth/main.conf
+
+echo "--- Installing btscoreboard systemd service ---"
+sudo cp /tmp/scoreboard-upload/btscoreboard/btscoreboard.service /etc/systemd/system/btscoreboard.service
+
+echo "--- Enabling btscoreboard service ---"
+sudo systemctl daemon-reload
+sudo systemctl enable btscoreboard
+sudo systemctl restart btscoreboard
+
+sleep 2
+sudo systemctl status btscoreboard --no-pager
+echo ""
+echo "--- BT Scoreboard installed ---"
+BT_SCRIPT
+
+# Step 4: Upload Arduino sketch from the Pi
+echo ""
+echo "[4/5] Uploading Arduino sketch from Pi..."
 ssh "${PI_USER}@${PI_HOST}" bash -s <<'ARDUINO_SCRIPT'
 set -e
 
@@ -159,12 +191,12 @@ echo ""
 echo "--- Arduino sketch uploaded successfully! ---"
 
 # Cleanup
-rm -rf /tmp/scoreboard-upload /tmp/scoreboard-sketch /tmp/scoreboard.service
+rm -rf /tmp/scoreboard-upload /tmp/scoreboard-sketch /tmp/scoreboard.service /tmp/btscoreboard.service
 ARDUINO_SCRIPT
 
-# Step 4: Verify
+# Step 5: Verify
 echo ""
-echo "[4/4] Verifying..."
+echo "[5/5] Verifying..."
 sleep 2
 if curl -s --connect-timeout 5 "http://${PI_HOST}/" | grep -qi "scoreboard"; then
     echo "SUCCESS: Scoreboard is live at http://${PI_HOST}/"
@@ -178,10 +210,16 @@ echo "========================================"
 echo "  Scoreboard:  http://${PI_HOST}/"
 echo "  Admin panel: http://${PI_HOST}/admin"
 echo ""
-echo "  IMPORTANT: Change the admin token!"
-echo "  Edit /etc/systemd/system/scoreboard.service"
-echo "  Change ADMIN_TOKEN=changeme to something secure"
-echo "  Then: sudo systemctl daemon-reload && sudo systemctl restart scoreboard"
+echo "  IMPORTANT: Set the same admin token in BOTH service files:"
+echo "  sudo nano /etc/systemd/system/scoreboard.service"
+echo "  sudo nano /etc/systemd/system/btscoreboard.service"
+echo "  Change ADMIN_TOKEN=changeme to something secure in both"
+echo "  Then: sudo systemctl daemon-reload"
+echo "        sudo systemctl restart scoreboard btscoreboard"
+echo ""
+echo "  BT device name: BT-Scoreboard"
+echo "  In Play Cricket Scorer App: External Scoreboard → Generic → Not Connected"
 echo ""
 echo "  Logs: ssh ${PI_USER}@${PI_HOST} sudo journalctl -u scoreboard -f"
+echo "        ssh ${PI_USER}@${PI_HOST} sudo journalctl -u btscoreboard -f"
 echo "========================================"
