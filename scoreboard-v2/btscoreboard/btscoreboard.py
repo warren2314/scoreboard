@@ -359,7 +359,7 @@ class AutoPairAgent(dbus.service.Object):
     def RequestConfirmation(self, device, passkey):
         log.info('RequestConfirmation: %s %d — auto-confirmed', device, passkey)
 
-    @dbus.service.method(AGENT_IFACE, in_signature='o', out_signature='')
+    @dbus.service.method(AGENT_IFACE, in_signature='', out_signature='')
     def Cancel(self):
         log.info('Agent cancel')
 
