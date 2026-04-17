@@ -43,7 +43,8 @@ sudo apt-get install -y build-essential python3
 
 echo "--- Installing npm dependencies ---"
 cd /opt/scoreboard
-sudo npm install --production
+sudo npm install --omit=dev
+sudo npm audit fix --omit=dev || true
 
 echo "--- Setting permissions ---"
 sudo chown -R root:root /opt/scoreboard
