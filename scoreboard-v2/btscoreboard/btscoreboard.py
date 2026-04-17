@@ -351,12 +351,13 @@ def main():
         sys.exit(1)
     log.info('BLE adapter: %s', adapter_path)
 
-    # Power on, make discoverable and pairable
+    # Power on, set device name, make discoverable and pairable
     adapter_props = dbus.Interface(
         bus.get_object(BLUEZ_SERVICE_NAME, adapter_path),
         DBUS_PROP_IFACE
     )
     adapter_props.Set('org.bluez.Adapter1', 'Powered',      dbus.Boolean(True))
+    adapter_props.Set('org.bluez.Adapter1', 'Alias',        dbus.String(LOCAL_NAME))
     adapter_props.Set('org.bluez.Adapter1', 'Discoverable', dbus.Boolean(True))
     adapter_props.Set('org.bluez.Adapter1', 'Pairable',     dbus.Boolean(True))
 

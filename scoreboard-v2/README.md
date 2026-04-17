@@ -234,7 +234,7 @@ Almost always voltage drop. Check both 5V feeds are connected to the chain. Meas
 sudo systemctl status btscoreboard
 sudo journalctl -u btscoreboard -f
 ```
-Make sure the Pi's Bluetooth is on and the Play Cricket Scorer App is set to **Generic** scoreboard type.
+Make sure the Pi's Bluetooth is on and the Play Cricket Scorer App is set to **Generic** scoreboard type. The device shows as **BT-Scoreboard** — if it shows the Pi's hostname instead, redeploy to pick up the name fix.
 
 ### Need to check what Play Cricket API would send
 Admin panel → tick **Dry Run** → Start Sync. The status box shows what it parsed every 60 seconds without touching the board. Also visible in logs:
