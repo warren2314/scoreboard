@@ -1,48 +1,33 @@
 #!/bin/bash
 #
-# Deploy Droylsden CC cricket scoreboard to Raspberry Pi
+# Deploy Droylsden CC cricket scoreboard — run this directly on the Pi
 # Deploys: Node.js server, BT Scoreboard service, and Arduino sketch
 #
-# Usage:
-#   ./deploy.sh <pi-ip-address> [pi-username]
-#
-# Examples:
-#   ./deploy.sh 192.168.1.50
-#   ./deploy.sh 192.168.1.50 pi
+# Usage (on the Pi):
+#   git pull
+#   cd scoreboard-v2
+#   chmod +x deploy.sh
+#   ./deploy.sh
 #
 # Prerequisites:
-#   - Pi is on the network with SSH enabled
-#   - Arduino is plugged into the Pi via USB (USB A-to-B cable)
+#   - Arduino is plugged into the Pi via USB
 
 set -e
 
-PI_HOST="${1:?Usage: $0 <pi-ip-address> [pi-username]}"
-PI_USER="${2:-pi}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "=== Cricket Scoreboard v2 Deployment ==="
-echo "Target: ${PI_USER}@${PI_HOST}"
 echo ""
 
-# Step 1: Copy ALL files to Pi (server + btscoreboard + arduino)
-echo "[1/5] Copying files to Pi..."
-ssh "${PI_USER}@${PI_HOST}" "mkdir -p /tmp/scoreboard-upload/arduino /tmp/scoreboard-upload/btscoreboard && sudo mkdir -p /opt/scoreboard"
-scp -r "${SCRIPT_DIR}/server/"* "${PI_USER}@${PI_HOST}:/tmp/scoreboard-upload/"
-scp -r "${SCRIPT_DIR}/arduino/"* "${PI_USER}@${PI_HOST}:/tmp/scoreboard-upload/arduino/"
-scp -r "${SCRIPT_DIR}/btscoreboard/"* "${PI_USER}@${PI_HOST}:/tmp/scoreboard-upload/btscoreboard/"
-scp "${SCRIPT_DIR}/scoreboard.service" "${PI_USER}@${PI_HOST}:/tmp/scoreboard.service"
-
-# Step 2: Install Node.js server
-echo "[2/5] Installing Node.js server..."
-ssh "${PI_USER}@${PI_HOST}" bash -s <<'REMOTE_SCRIPT'
-set -e
+# Step 1: Install Node.js server
+echo "[1/4] Installing Node.js server..."
 
 echo "--- Moving server files into place ---"
 sudo mkdir -p /opt/scoreboard
-sudo cp -r /tmp/scoreboard-upload/package.json /opt/scoreboard/
-sudo cp -r /tmp/scoreboard-upload/server.js /opt/scoreboard/
-sudo cp -r /tmp/scoreboard-upload/public /opt/scoreboard/
-sudo cp /tmp/scoreboard.service /etc/systemd/system/scoreboard.service
+sudo cp -r "${SCRIPT_DIR}/server/package.json" /opt/scoreboard/
+sudo cp -r "${SCRIPT_DIR}/server/server.js" /opt/scoreboard/
+sudo cp -r "${SCRIPT_DIR}/server/public" /opt/scoreboard/
+sudo cp "${SCRIPT_DIR}/scoreboard.service" /etc/systemd/system/scoreboard.service
 
 echo "--- Installing Node.js (if not present) ---"
 if ! command -v node &>/dev/null; then
@@ -53,7 +38,7 @@ else
     echo "Node.js already installed: $(node --version)"
 fi
 
-echo "--- Installing build tools (required for serialport native bindings) ---"
+echo "--- Installing build tools ---"
 sudo apt-get install -y build-essential python3
 
 echo "--- Installing npm dependencies ---"
@@ -72,7 +57,6 @@ sudo chmod 440 /etc/sudoers.d/scoreboard
 echo "--- Stopping old services if present ---"
 sudo systemctl stop apache2 2>/dev/null || true
 sudo systemctl disable apache2 2>/dev/null || true
-(sudo crontab -l 2>/dev/null | grep -v scoreboard) | sudo crontab - 2>/dev/null || true
 
 echo "--- Enabling and starting scoreboard service ---"
 sudo systemctl daemon-reload
@@ -83,27 +67,24 @@ sleep 2
 sudo systemctl status scoreboard --no-pager
 echo ""
 echo "--- Node.js server installed ---"
-REMOTE_SCRIPT
 
-# Step 3: Install BT Scoreboard service
+# Step 2: Install BT Scoreboard service
 echo ""
-echo "[3/5] Installing BT Scoreboard service..."
-ssh "${PI_USER}@${PI_HOST}" bash -s <<'BT_SCRIPT'
-set -e
+echo "[2/4] Installing BT Scoreboard service..."
 
 echo "--- Installing Python BLE dependencies ---"
-sudo apt-get install -y python3-dbus python3-gi bluez 2>/dev/null
+sudo apt-get install -y python3-dbus python3-gi bluez
 
 echo "--- Installing btscoreboard.py ---"
 sudo mkdir -p /opt/btscoreboard
-sudo cp /tmp/scoreboard-upload/btscoreboard/btscoreboard.py /opt/btscoreboard/btscoreboard.py
+sudo cp "${SCRIPT_DIR}/btscoreboard/btscoreboard.py" /opt/btscoreboard/btscoreboard.py
 sudo chmod 755 /opt/btscoreboard/btscoreboard.py
 
 echo "--- Configuring Bluetooth (always discoverable) ---"
 sudo sed -i 's/^#*DiscoverableTimeout\s*=.*/DiscoverableTimeout = 0/' /etc/bluetooth/main.conf
 
 echo "--- Installing btscoreboard systemd service ---"
-sudo cp /tmp/scoreboard-upload/btscoreboard/btscoreboard.service /etc/systemd/system/btscoreboard.service
+sudo cp "${SCRIPT_DIR}/btscoreboard/btscoreboard.service" /etc/systemd/system/btscoreboard.service
 
 echo "--- Enabling btscoreboard service ---"
 sudo systemctl daemon-reload
@@ -114,13 +95,10 @@ sleep 2
 sudo systemctl status btscoreboard --no-pager
 echo ""
 echo "--- BT Scoreboard installed ---"
-BT_SCRIPT
 
-# Step 4: Upload Arduino sketch from the Pi
+# Step 3: Flash Arduino sketch
 echo ""
-echo "[4/5] Uploading Arduino sketch from Pi..."
-ssh "${PI_USER}@${PI_HOST}" bash -s <<'ARDUINO_SCRIPT'
-set -e
+echo "[3/4] Flashing Arduino sketch..."
 
 echo "--- Installing arduino-cli (if not present) ---"
 if ! command -v arduino-cli &>/dev/null; then
@@ -130,24 +108,10 @@ else
     echo "arduino-cli already installed: $(arduino-cli version)"
 fi
 
-echo "--- Setting up Arduino core and library ---"
+echo "--- Setting up Arduino UNO R4 core ---"
 arduino-cli config init --overwrite 2>/dev/null || true
 arduino-cli core update-index
-arduino-cli core install arduino:renesas_uno 2>/dev/null || echo "arduino:renesas_uno core already installed"
-
-# Install the ShifterStr library
-echo "--- Installing ShifterStr library ---"
-ARDUINO_LIB_DIR="$(arduino-cli config dump --format json | grep -o '"user": "[^"]*"' | head -1 | cut -d'"' -f4)/libraries"
-if [ -z "$ARDUINO_LIB_DIR" ] || [ "$ARDUINO_LIB_DIR" = "/libraries" ]; then
-    ARDUINO_LIB_DIR="$HOME/Arduino/libraries"
-fi
-mkdir -p "$ARDUINO_LIB_DIR/ShifterStr"
-cp /tmp/scoreboard-upload/arduino/lib/ShifterStr/* "$ARDUINO_LIB_DIR/ShifterStr/"
-echo "ShifterStr installed to $ARDUINO_LIB_DIR/ShifterStr/"
-
-# Copy sketch to a temp build directory
-mkdir -p /tmp/scoreboard-sketch/scoreboard
-cp /tmp/scoreboard-upload/arduino/scoreboard/scoreboard.ino /tmp/scoreboard-sketch/scoreboard/
+arduino-cli core install arduino:renesas_uno 2>/dev/null || echo "Core already installed"
 
 echo "--- Detecting Arduino board ---"
 BOARD_PORT=""
@@ -163,52 +127,43 @@ done
 
 if [ -z "$BOARD_PORT" ]; then
     echo ""
-    echo "ERROR: No Arduino detected on USB."
-    echo "Make sure the Arduino is plugged into the Pi with a USB cable."
-    echo ""
-    echo "You can upload manually later with:"
-    echo "  arduino-cli compile -b arduino:renesas_uno:unor4wifi /tmp/scoreboard-sketch/scoreboard"
-    echo "  arduino-cli upload -b arduino:renesas_uno:unor4wifi -p /dev/ttyACM0 /tmp/scoreboard-sketch/scoreboard"
-    exit 1
+    echo "WARNING: No Arduino detected on USB — skipping flash."
+    echo "To flash manually later:"
+    echo "  arduino-cli compile -b arduino:renesas_uno:unor4wifi ${SCRIPT_DIR}/arduino/scoreboard"
+    echo "  arduino-cli upload -b arduino:renesas_uno:unor4wifi -p /dev/ttyACM0 ${SCRIPT_DIR}/arduino/scoreboard"
+else
+    echo "Found Arduino on $BOARD_PORT"
+
+    echo "--- Compiling sketch ---"
+    arduino-cli compile -b arduino:renesas_uno:unor4wifi "${SCRIPT_DIR}/arduino/scoreboard"
+
+    echo "--- Stopping scoreboard service to free serial port ---"
+    sudo systemctl stop scoreboard 2>/dev/null || true
+    sleep 2
+
+    echo "--- Uploading to Arduino ---"
+    arduino-cli upload -b arduino:renesas_uno:unor4wifi -p "$BOARD_PORT" "${SCRIPT_DIR}/arduino/scoreboard"
+
+    echo "--- Restarting scoreboard service ---"
+    sudo systemctl start scoreboard
+
+    echo "--- Arduino sketch uploaded successfully ---"
 fi
 
-echo "Found Arduino on $BOARD_PORT"
-
-echo "--- Compiling sketch ---"
-arduino-cli compile -b arduino:renesas_uno:unor4wifi /tmp/scoreboard-sketch/scoreboard
-
-echo "--- Stopping scoreboard service to free serial port ---"
-sudo systemctl stop scoreboard 2>/dev/null || true
-sleep 2
-
-echo "--- Uploading to Arduino on $BOARD_PORT ---"
-arduino-cli upload -b arduino:renesas_uno:unor4wifi -p "$BOARD_PORT" /tmp/scoreboard-sketch/scoreboard
-
-echo "--- Restarting scoreboard service ---"
-sudo systemctl start scoreboard
-
+# Step 4: Verify
 echo ""
-echo "--- Arduino sketch uploaded successfully! ---"
-
-# Cleanup
-rm -rf /tmp/scoreboard-upload /tmp/scoreboard-sketch /tmp/scoreboard.service /tmp/btscoreboard.service
-ARDUINO_SCRIPT
-
-# Step 5: Verify
-echo ""
-echo "[5/5] Verifying..."
+echo "[4/4] Verifying..."
 sleep 2
-if curl -s --connect-timeout 5 "http://${PI_HOST}/" | grep -qi "scoreboard"; then
-    echo "SUCCESS: Scoreboard is live at http://${PI_HOST}/"
+if curl -s --connect-timeout 5 "http://localhost/" | grep -qi "scoreboard"; then
+    echo "SUCCESS: Scoreboard is live"
 else
-    echo "WARNING: Could not verify. Check http://${PI_HOST}/ manually."
-    echo "Debug: ssh ${PI_USER}@${PI_HOST} sudo journalctl -u scoreboard -f"
+    echo "WARNING: Could not verify. Check: sudo journalctl -u scoreboard -f"
 fi
 
 echo ""
 echo "========================================"
-echo "  Scoreboard:  http://${PI_HOST}/"
-echo "  Admin panel: http://${PI_HOST}/admin"
+echo "  Scoreboard:  http://$(hostname -I | awk '{print $1}')/"
+echo "  Admin panel: http://$(hostname -I | awk '{print $1}')/admin"
 echo ""
 echo "  IMPORTANT: Set the same admin token in BOTH service files:"
 echo "  sudo nano /etc/systemd/system/scoreboard.service"
@@ -220,6 +175,6 @@ echo ""
 echo "  BT device name: BT-Scoreboard"
 echo "  In Play Cricket Scorer App: External Scoreboard → Generic → Not Connected"
 echo ""
-echo "  Logs: ssh ${PI_USER}@${PI_HOST} sudo journalctl -u scoreboard -f"
-echo "        ssh ${PI_USER}@${PI_HOST} sudo journalctl -u btscoreboard -f"
+echo "  Logs: sudo journalctl -u scoreboard -f"
+echo "        sudo journalctl -u btscoreboard -f"
 echo "========================================"
