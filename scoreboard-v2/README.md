@@ -1,192 +1,271 @@
-# Droylsden Cricket Club - LED Scoreboard
+# Droylsden Cricket Club — LED Scoreboard
 
-Raspberry Pi 5 web panel → Arduino UNO R4 WiFi → TPIC6B595 shift registers → 7-segment LED displays.
+## What this is
 
-**18 digits total, 3 chains of 6 digits.**
+A Raspberry Pi 5 runs a web server that talks to an Arduino UNO R4 WiFi over USB. The Arduino drives 18 seven-segment LED digits via TPIC6B595 shift registers.
+
+Scores come in two ways:
+- **Primary:** Play Cricket Scorer App on a phone/tablet via Bluetooth
+- **Backup:** Web scorer panel in any browser on the local network
+
+---
+
+## Physical board layout
+
+```
+[ Bat A  ]  [ Total  ]  [ Bat B  ]
+[ Target ]  [        ]  [ Wkts   ]
+[ DLS    ]  [        ]  [ Overs  ]
+```
+
+### Digit index map
+
+| Display | Digits | Chain | Indices |
+|---------|--------|-------|---------|
+| Bat A   | 3      | 1     | 0, 1, 2 |
+| Total   | 3      | 1     | 3, 4, 5 |
+| Bat B   | 3      | 2     | 6, 7, 8 |
+| Wkts    | 1      | 2     | 9       |
+| Overs   | 2      | 2     | 10, 11  |
+| Target  | 3      | 3     | 12, 13, 14 |
+| DLS     | 3      | 3     | 15, 16, 17 |
+
+### Arduino pin map
+
+| Chain | SRCK | SERIN | RCK | Covers           |
+|-------|------|-------|-----|------------------|
+| 1     | D2   | D3    | D4  | Bat A + Total    |
+| 2     | D5   | D6    | D7  | Bat B + Wkts + Overs |
+| 3     | D8   | D9    | D10 | Target + DLS     |
 
 ---
 
 ## Hardware
 
-| Component | Notes |
-|-----------|-------|
-| Raspberry Pi 5 | Runs Node.js web server, systemd service `scoreboard` |
-| Arduino UNO R4 WiFi | Shows up as `/dev/ttyACM0` on the Pi, `COM3` on Windows |
-| TPIC6B595 boards | W19Design "Shift2" boards, 6 daisy-chained per pin set |
-| Power | Two separate 5V feeds per chain to avoid voltage drop |
+| Component | Detail |
+|-----------|--------|
+| Raspberry Pi 5 | Runs Node.js server + BT scoreboard service |
+| Arduino UNO R4 WiFi | `/dev/ttyACM0` on Pi, 57600 baud |
+| TPIC6B595 boards | W19Design "Shift2", 6 per chain, 3 chains |
+| Power supply | Two separate 5V feeds per chain (one at board 0, one at board 3) to avoid voltage drop |
 
-### Arduino pin map (confirmed working)
-
-| Chain | SRCK | SERIN | RCK | Digits |
-|-------|------|-------|-----|--------|
-| 1 | D2 | D3 | D4 | BatA(3) + Wickets(1) + Overs(2) |
-| 2 | D5 | D6 | D7 | Total(3) + BatB(3) |
-| 3 | D8 | D9 | D10 | Target(3) + DLS(3) |
-
-**Important:** Pin order is SRCK-SERIN-RCK. Previous versions had SRCK/RCK swapped — only clocked one bit per command. Do not change.
-
-### Voltage drop warning
-
-With 6 boards per chain you MUST run two separate 5V feeds to each chain — one at board 0, one at board 3 or 4. A single feed causes the last boards to receive corrupted data once enough segments are lit. Both feeds share the same PSU and the same GND.
+> **Voltage drop:** With 6 boards per chain you MUST run two 5V feeds into each chain. A single feed causes garbled segments on the last boards when enough LEDs are lit. Both feeds share the same GND.
 
 ---
 
-## Flashing the Arduino at the club
+## First time setup (do this once)
 
-The Pi 5 cannot flash the R4 WiFi (bossac fails on the Pi 5's RP1 USB controller). You must flash from a Windows PC using `arduino-cli`.
+### 1. Clone the repo on the Pi
 
-### One-time: prepare the USB stick (at home)
+```bash
+git clone https://github.com/warren2314/scoreboard.git
+cd scoreboard/scoreboard-v2
+```
 
-1. Plug in a USB stick
-2. Double-click `scoreboard-v2/arduino/prepare_usb.bat`
-3. Enter the drive letter for the USB when prompted
-4. It copies `arduino-cli.exe`, the `scoreboard` sketch, `flash.ps1`, and `flash.bat` into `<USB>:\DroylsdenScoreboard\`
+### 2. Run the deploy script
 
-### At the club: flash the Arduino
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
 
-1. Plug USB stick into the club PC
-2. Plug Arduino into the club PC via USB cable
-3. Open `DroylsdenScoreboard` folder on the USB
-4. Double-click `flash.bat`
-5. It auto-detects the COM port, compiles, uploads, done.
+This installs:
+- Node.js web server (`/opt/scoreboard`)
+- BT Scoreboard service (`/opt/btscoreboard`)
+- Flashes the Arduino sketch (Arduino must be plugged in)
 
-### After flashing
+### 3. Set the admin token
 
-- Send `5#` from the web panel Test button — all 18 digits should show 8
-- If any chain fails, check:
-  - Power is reaching both ends of that chain (voltage drop)
-  - Data wire connections (SERIN from previous board's SEROUT)
-  - GND is shared between PSU and Arduino
+The admin token protects the score API and admin panel. Set the **same token** in both service files:
+
+```bash
+sudo nano /etc/systemd/system/scoreboard.service
+# Change: ADMIN_TOKEN=changeme → ADMIN_TOKEN=yourtoken
+
+sudo nano /etc/systemd/system/btscoreboard.service
+# Change: ADMIN_TOKEN=changeme → yourtoken (must match)
+
+sudo systemctl daemon-reload
+sudo systemctl restart scoreboard btscoreboard
+```
+
+### 4. Protect the SD card (CRITICAL)
+
+Scorers will just yank the power — enable the read-only overlay filesystem so the SD card doesn't corrupt:
+
+```bash
+sudo raspi-config
+# Performance Options → Overlay File System → Enable → Yes to both → Reboot
+```
+
+Once this is on, pulling the plug is safe. All writes go to RAM and are discarded on reboot.
 
 ---
 
-## SD card corruption protection (CRITICAL)
+## Updating the code (after first setup)
 
-**The scorers will not have access to the Pi and may just yank the power.** You MUST enable the read-only overlay filesystem before handing over, or the SD card will eventually corrupt.
+You need to temporarily disable the overlay filesystem to make changes:
 
-### Enable overlay filesystem (do this ONCE before deployment)
-
-SSH into the Pi:
 ```bash
+# 1. Disable overlay and reboot
 sudo raspi-config
-```
+# Performance Options → Overlay File System → Disable → Reboot
 
-Navigate to:
-- **Performance Options → Overlay File System**
-- "Would you like the overlay file system to be enabled?" → **Yes**
-- "Would you like the boot partition to be write-protected?" → **Yes**
-- Reboot when prompted
-
-Now the root filesystem is read-only. Pulling the plug is safe. All runtime writes go to RAM and are discarded on reboot.
-
-### Disable overlay temporarily (to update code)
-
-When you need to update the server code or flash a new Arduino sketch:
-
-```bash
-sudo raspi-config
-# Performance Options → Overlay File System → Disable
-sudo reboot
-```
-
-Make your changes:
-```bash
-cd /path/to/scoreboard-v2
+# 2. Pull latest code and redeploy
+cd scoreboard/scoreboard-v2
 git pull
-sudo systemctl restart scoreboard
-```
+./deploy.sh
 
-Test that everything works, then re-enable overlay:
-```bash
+# 3. Test everything works, then re-enable overlay
 sudo raspi-config
-# Performance Options → Overlay File System → Enable
-sudo reboot
+# Performance Options → Overlay File System → Enable → Reboot
 ```
-
-### What is NOT persisted when overlay is on
-
-- Logs (journald is in RAM)
-- Any files written to disk
-- systemd state changes
-
-Score state is held in RAM in the Node server — this is fine because the scorers enter scores via the web panel each match anyway. There is nothing to persist between reboots.
 
 ---
 
-## Deploying server updates
+## Flashing the Arduino
 
-When code changes need to go onto the Pi:
+The deploy script flashes automatically if the Arduino is plugged in. If you need to flash manually (e.g. the Pi 5 bossac issue):
 
-1. **Disable overlay FS** (see above) and reboot
-2. On the Pi:
-   ```bash
-   cd /path/to/scoreboard-v2
-   git pull
-   sudo systemctl restart scoreboard
-   sudo systemctl status scoreboard
-   ```
-3. Test the web panel and any Arduino changes
-4. **Re-enable overlay FS** and reboot
+**From a Windows PC:**
+1. Plug Arduino into PC via USB
+2. Run from the repo root:
+```
+scoreboard-v2\arduino\scoreboard\  (open this folder)
+arduino-cli compile -b arduino:renesas_uno:unor4wifi scoreboard-v2/arduino/scoreboard
+arduino-cli upload -b arduino:renesas_uno:unor4wifi -p COM3 scoreboard-v2/arduino/scoreboard
+```
+
+**Useful Arduino serial commands** (57600 baud, `#` terminated):
+
+| Command | What it does |
+|---------|-------------|
+| `alltest#` | All 18 digits show 8 |
+| `walk#` | Steps an 8 through each digit, prints index |
+| `clear#` | All digits off |
+| `status#` | Print last known score |
+| `digit,9,5#` | Set digit 9 (Wkts) to 5 |
 
 ---
 
-## Web panel
+## Game day
 
-- **Main scorer page:** `http://<pi-ip>/`  — used during matches
-- **Admin page:** `http://<pi-ip>/admin`  — Play Cricket sync, reboot, shutdown, test mode
-- **Digit test page:** `http://<pi-ip>/digit-test`  — low-level digit-by-digit testing (uses test sketch, not production)
+### Bluetooth (primary)
 
-### Play Cricket integration
+1. Power on the scoreboard — Pi and Arduino boot automatically
+2. Open the **Play Cricket Scorer App** on your phone/tablet
+3. Create a new game in the app
+4. Go to **Settings → External Scoreboard → Generic**
+5. Tap **Not Connected** — it will find **BT-Scoreboard**
+6. Tap it to connect — status changes to **Connected**
+7. Score as normal — every update goes straight to the board
 
-Admin page → Play Cricket Live Sync section:
-- Enter Match ID and API token
-- **Tick "Dry Run"** to test parsing without updating the scoreboard (shows what it *would* have sent — use this during a live match to verify before committing)
-- Click Start Sync
-- Status box shows last update time and parsed score (Bat A / Total / Bat B / etc.)
-- Blank positions show as underscores (`_`) so they are obvious
+### Web scorer panel (backup)
 
-### Score command format (Arduino)
+If Bluetooth drops or you need to override a score manually:
 
+1. Connect your phone to the same WiFi as the Pi
+2. Open `http://<pi-ip>/` in your browser
+3. Enter the scorer token
+4. Use + / − buttons to update each field
+5. Changes send to the board immediately
+
+> The **New Innings** button resets all scores to zero and sends to the board. This is the only way to reset — refreshing the page no longer wipes the score.
+
+---
+
+## Admin panel
+
+Open `http://<pi-ip>/admin` — requires the admin token.
+
+| Button | What it does |
+|--------|-------------|
+| Test Mode | All 18 digits show 8 |
+| Load from USB | Reads `scoreboard.json` from a USB stick |
+| Start Sync | Start Play Cricket API sync (backup scoring method) |
+| Stop Sync | Stop Play Cricket API sync |
+| Reboot Pi | Reboots the Pi |
+| Shutdown Pi | Shuts down the Pi safely |
+
+### USB config (for Play Cricket API sync)
+
+If you want to use the API sync rather than Bluetooth, put a file called `scoreboard.json` on a USB stick:
+
+```json
+{ "matchId": "4789123", "apiToken": "your-playcricket-api-key" }
 ```
-4,<batA(3)>,<total(3)>,<batB(3)>,<target(3)>,<wkts(1)>,<overs(2)>,<dls(3)>#
+
+Plug it in, press **Load from USB**, tick **Dry Run** to test first, then **Start Sync**.
+
+---
+
+## Remote access (Tailscale)
+
+To SSH into the Pi from anywhere (useful if you're not at the ground):
+
+```bash
+# On the Pi
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
 ```
 
-Example: `4,--5,123,--8,--0,3,12,--0#`
-
-Other commands: `5#` (test mode, all 8s), `clear#`, `status#`
+Install Tailscale on your phone/laptop and sign in with the same account. The Pi gets a permanent IP you can SSH to from anywhere without port forwarding.
 
 ---
 
 ## Troubleshooting
 
-### "Arduino disconnected" on web panel
-- Check USB cable from Pi to Arduino
-- Check `/dev/ttyACM0` exists on the Pi: `ls /dev/ttyACM*`
-- Restart service: `sudo systemctl restart scoreboard`
+### Digits don't initialise on power-on
+The server sends the current score 2 seconds after the serial port opens. If digits still don't appear, check:
+- USB cable from Pi to Arduino is seated properly
+- `sudo journalctl -u scoreboard -f` for errors
 
-### Some digits show wrong segments / garbled
-- Almost always voltage drop — check both 5V feeds are connected to each chain
-- Check the last board in the chain is receiving 5V (measure with multimeter)
+### Arduino disconnected in web panel
+```bash
+ls /dev/ttyACM*          # should show /dev/ttyACM0
+sudo systemctl restart scoreboard
+```
 
-### Flash fails on Windows
-- Try a different USB cable (some data-only cables don't carry enough power for flashing)
-- Check Device Manager for COM port — update `flash.ps1` if COM3 is wrong
-- Board might be in bootloader mode — double-tap the reset button on the Arduino
+### Garbled or wrong segments on a chain
+Almost always voltage drop. Check both 5V feeds are connected to the chain. Measure voltage at the last board — should be above 4.7V.
 
-### Pi won't boot after power loss
-- Shouldn't happen with overlay FS enabled. If it does, the overlay may not have been enabled properly. Reimage the SD card and re-enable overlay before handing over again.
+### Bluetooth not connecting
+```bash
+sudo systemctl status btscoreboard
+sudo journalctl -u btscoreboard -f
+```
+Make sure the Pi's Bluetooth is on and the Play Cricket Scorer App is set to **Generic** scoreboard type.
+
+### Need to check what Play Cricket API would send
+Admin panel → tick **Dry Run** → Start Sync. The status box shows what it parsed every 60 seconds without touching the board. Also visible in logs:
+```bash
+sudo journalctl -u scoreboard -f
+```
+
+### SD card corruption after power loss
+Overlay filesystem was not enabled. Reimage, redeploy, and enable overlay before handing back over.
 
 ---
 
-## File locations reference
+## File reference
 
-| What | Where |
-|------|-------|
-| Production Arduino sketch | `arduino/scoreboard/scoreboard.ino` |
-| Test sketch (digit-by-digit) | `arduino/single_digit_test/single_digit_test.ino` |
-| Flash USB prep script | `arduino/prepare_usb.bat` |
-| Flash script (on USB) | `<USB>:\DroylsdenScoreboard\flash.bat` |
-| Node server | `server/server.js` |
-| Scorer web panel | `server/public/index.html` + `server/public/js/app.js` |
-| Admin web panel | `server/public/admin.html` |
-| systemd service | `scoreboard.service` |
+| File | What it is |
+|------|-----------|
+| `arduino/scoreboard/scoreboard.ino` | Arduino sketch |
+| `arduino/scoreboard/README.md` | Digit positions quick reference |
+| `server/server.js` | Node.js API server |
+| `server/public/index.html` | Scorer web panel |
+| `server/public/admin.html` | Admin panel |
+| `btscoreboard/btscoreboard.py` | BLE receiver for Play Cricket Scorer App |
+| `btscoreboard/btscoreboard.service` | systemd service for BT scoreboard |
+| `scoreboard.service` | systemd service for Node.js server |
+| `deploy.sh` | One-command deploy script (run on Pi) |
+
+---
+
+## Logs
+
+```bash
+sudo journalctl -u scoreboard -f      # Node.js server
+sudo journalctl -u btscoreboard -f    # BT scoreboard
+```
