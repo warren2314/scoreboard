@@ -118,6 +118,7 @@ body {
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  touch-action: manipulation;
   transition: background 0.1s;
 }
 .digit-btn:active {

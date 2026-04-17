@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const https = require('https');
+const fs = require('fs');
 const { exec } = require('child_process');
 const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
@@ -461,6 +462,29 @@ app.get('/admin', (req, res) => {
 // Serve digit test page
 app.get('/digit-test', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'digit-test.html'));
+});
+
+// Load Play Cricket config from USB stick
+// Looks for scoreboard.json in common Pi USB mount paths
+app.get('/api/playcricket/usb-config', (req, res) => {
+  const searchRoots = ['/media/pi', '/media', '/mnt'];
+  for (const root of searchRoots) {
+    let entries;
+    try { entries = fs.readdirSync(root); } catch { continue; }
+    for (const entry of entries) {
+      const candidate = path.join(root, entry, 'scoreboard.json');
+      try {
+        const raw = fs.readFileSync(candidate, 'utf8');
+        const cfg = JSON.parse(raw);
+        if (!cfg.matchId || !cfg.apiToken) {
+          return res.status(400).json({ error: 'scoreboard.json must contain matchId and apiToken' });
+        }
+        console.log(`Loaded USB config from ${candidate}`);
+        return res.json({ ok: true, matchId: String(cfg.matchId), apiToken: String(cfg.apiToken) });
+      } catch { /* not found or invalid, keep scanning */ }
+    }
+  }
+  res.status(404).json({ error: 'No scoreboard.json found on any USB drive. Make sure the USB is inserted and contains a scoreboard.json file.' });
 });
 
 // --- Start ---

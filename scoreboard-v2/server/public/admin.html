@@ -44,6 +44,7 @@
       </label>
     </div>
     <div class="admin-actions" style="margin-top:0">
+      <button class="admin-btn" id="btn-pc-usb">Load from USB</button>
       <button class="admin-btn" id="btn-pc-start">Start Sync</button>
       <button class="admin-btn" id="btn-pc-stop">Stop Sync</button>
     </div>
@@ -162,6 +163,23 @@
         'Authorization': `Bearer ${token}`
       };
     }
+
+    document.getElementById('btn-pc-usb').addEventListener('click', async () => {
+      showPcStatus('Looking for USB stick...', false);
+      try {
+        const res  = await fetch('/api/playcricket/usb-config');
+        const data = await res.json();
+        if (data.ok) {
+          document.getElementById('pc-match-id').value  = data.matchId;
+          document.getElementById('pc-api-token').value = data.apiToken;
+          showPcStatus(`Loaded from USB — Match ID: ${data.matchId}. Press Start Sync when ready.`, false);
+        } else {
+          showPcStatus(data.error, true);
+        }
+      } catch (err) {
+        showPcStatus(`Connection error: ${err.message}`, true);
+      }
+    });
 
     document.getElementById('btn-pc-start').addEventListener('click', async () => {
       const matchId  = document.getElementById('pc-match-id').value.trim();
