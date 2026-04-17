@@ -8,15 +8,16 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0a1628;
-      --panel:     #111f38;
-      --accent:    #c8a84b;   /* gold */
-      --accent2:   #4b9bc8;  /* steel blue */
-      --text:      #e8e8e8;
-      --muted:     #7a8fa6;
-      --green:     #3abf7a;
+      --bg:        #0f3b2e;   /* dark club green */
+      --panel:     #0a1f18;   /* deeper green for panels */
+      --panel2:    #145a3a;   /* mid green */
+      --accent:    #d4af37;   /* primary gold */
+      --accent2:   #f1d27a;   /* light gold highlights */
+      --text:      #ffffff;
+      --muted:     #cbd5c0;   /* soft white/grey */
+      --green:     #1f7a4f;   /* accent green */
       --red:       #e05050;
-      --border:    rgba(200,168,75,0.25);
+      --border:    rgba(212,175,55,0.3);
     }
 
     body {
@@ -75,7 +76,7 @@
 
     /* ---- Teams banner ---- */
     .teams-banner {
-      background: linear-gradient(135deg, var(--panel) 60%, #1a2e50);
+      background: linear-gradient(135deg, var(--panel) 60%, var(--panel2));
       padding: 14px 24px;
       display: flex;
       align-items: center;
@@ -141,7 +142,7 @@
     /* Target / required row */
     .chase-bar {
       display: none;
-      background: linear-gradient(90deg, #1a2e50, var(--panel));
+      background: linear-gradient(90deg, var(--panel2), var(--panel));
       border-top: 1px solid var(--border);
       border-bottom: 1px solid var(--border);
       padding: 8px 24px;
