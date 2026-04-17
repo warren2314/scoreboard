@@ -3,10 +3,10 @@
 // Hardware: 3 chains of TPIC6B595 shift registers, 6 digits per chain = 18 total
 //
 //   Chain 1 (SRCK=D2, SERIN=D3, RCK=D4) — 6 digits
-//     Index 0-2: BatA     Index 3: Wkts     Index 4-5: Overs
+//     Index 0-2: BatA     Index 3-5: Total
 //
 //   Chain 2 (SRCK=D5, SERIN=D6, RCK=D7) — 6 digits
-//     Index 6-8: Total    Index 9-11: BatB
+//     Index 6-8: BatB     Index 9: Wkts     Index 10-11: Overs
 //
 //   Chain 3 (SRCK=D8, SERIN=D9, RCK=D10) — 6 digits
 //     Index 12-14: Target  Index 15-17: DLS
@@ -29,12 +29,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Chain 1 — BatA, Wkts, Overs
+// Chain 1 — BatA, Total
 #define SRCK1  2
 #define SERIN1 3
 #define RCK1   4
 
-// Chain 2 — Total, BatB
+// Chain 2 — BatB, Wkts, Overs
 #define SRCK2  5
 #define SERIN2 6
 #define RCK2   7
@@ -144,21 +144,21 @@ void setDigitGlyph(int idx, char g) {
 
 // Map score strings into display buffer and refresh
 void applyScore() {
-  // Chain 1 — indices 0-5: BatA(0-2), Wkts(3), Overs(4-5)
+  // Chain 1 — indices 0-5: BatA(0-2), Total(3-5)
   displayBuf[0] = encodeGlyph(batA[0]);
   displayBuf[1] = encodeGlyph(batA[1]);
   displayBuf[2] = encodeGlyph(batA[2]);
-  displayBuf[3] = encodeGlyph(wkts[0]);
-  displayBuf[4] = encodeGlyph(overs[0]);
-  displayBuf[5] = encodeGlyph(overs[1]);
+  displayBuf[3] = encodeGlyph(total[0]);
+  displayBuf[4] = encodeGlyph(total[1]);
+  displayBuf[5] = encodeGlyph(total[2]);
 
-  // Chain 2 — indices 6-11: Total(6-8), BatB(9-11)
-  displayBuf[6]  = encodeGlyph(total[0]);
-  displayBuf[7]  = encodeGlyph(total[1]);
-  displayBuf[8]  = encodeGlyph(total[2]);
-  displayBuf[9]  = encodeGlyph(batB[0]);
-  displayBuf[10] = encodeGlyph(batB[1]);
-  displayBuf[11] = encodeGlyph(batB[2]);
+  // Chain 2 — indices 6-11: BatB(6-8), Wkts(9), Overs(10-11)
+  displayBuf[6]  = encodeGlyph(batB[0]);
+  displayBuf[7]  = encodeGlyph(batB[1]);
+  displayBuf[8]  = encodeGlyph(batB[2]);
+  displayBuf[9]  = encodeGlyph(wkts[0]);
+  displayBuf[10] = encodeGlyph(overs[0]);
+  displayBuf[11] = encodeGlyph(overs[1]);
 
   // Chain 3 — indices 12-17: Target(12-14), DLS(15-17)
   displayBuf[12] = encodeGlyph(target[0]);
@@ -223,8 +223,8 @@ void printStatus() {
 
 void printHelp() {
   Serial.println("=== Droylsden CC Scoreboard ready ===");
-  Serial.println("Chain1 D2/3/4  idx 0-5   BatA(0-2) Wkts(3) Overs(4-5)");
-  Serial.println("Chain2 D5/6/7  idx 6-11  Total(6-8) BatB(9-11)");
+  Serial.println("Chain1 D2/3/4  idx 0-5   BatA(0-2) Total(3-5)");
+  Serial.println("Chain2 D5/6/7  idx 6-11  BatB(6-8) Wkts(9) Overs(10-11)");
   Serial.println("Chain3 D8/9/10 idx 12-17 Target(12-14) DLS(15-17)");
   Serial.println("Production: 4,batA(3),total(3),batB(3),target(3),wkts(1),overs(2),dls(3)#");
   Serial.println("Diag: 5# alltest# clear# walk# status# help#");
@@ -353,7 +353,7 @@ void setup() {
     digitalWrite(pins[i], LOW);
   }
 
-  delay(500);
+  delay(2000);
   clearAll();
 
   printHelp();

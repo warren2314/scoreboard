@@ -51,6 +51,12 @@ function openSerial() {
     port.on('open', () => {
       console.log(`Serial port ${SERIAL_PATH} opened at ${SERIAL_BAUD} baud`);
       state.serialConnected = true;
+      // Send initial score 2s after connect to let the Arduino finish booting
+      setTimeout(() => {
+        const cmd = `4,${state.batsmanA},${state.total},${state.batsmanB},${state.target},${state.wickets},${state.overs},${state.dls}#`;
+        port.write(cmd);
+        console.log(`Sent initial state to Arduino: ${cmd}`);
+      }, 2000);
     });
 
     parser.on('data', (line) => {
