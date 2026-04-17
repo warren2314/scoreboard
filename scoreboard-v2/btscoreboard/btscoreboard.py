@@ -355,7 +355,7 @@ class AutoPairAgent(dbus.service.Object):
     def DisplayPinCode(self, device, pincode):
         log.info('DisplayPinCode: %s %s', device, pincode)
 
-    @dbus.service.method(AGENT_IFACE, in_signature='ouq', out_signature='')
+    @dbus.service.method(AGENT_IFACE, in_signature='ou', out_signature='')
     def RequestConfirmation(self, device, passkey):
         log.info('RequestConfirmation: %s %d — auto-confirmed', device, passkey)
 
