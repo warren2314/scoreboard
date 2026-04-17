@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Droylsden CC — Live Scoreboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a1628;
+      --panel:     #111f38;
+      --accent:    #c8a84b;   /* gold */
+      --accent2:   #4b9bc8;  /* steel blue */
+      --text:      #e8e8e8;
+      --muted:     #7a8fa6;
+      --green:     #3abf7a;
+      --red:       #e05050;
+      --border:    rgba(200,168,75,0.25);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ---- Header ---- */
+    header {
+      background: var(--panel);
+      border-bottom: 2px solid var(--accent);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .club-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .match-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: right;
+    }
+    .live-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: var(--green);
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; }
+      50%      { opacity:0.3; }
+    }
+
+    /* ---- Main layout ---- */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ---- Teams banner ---- */
+    .teams-banner {
+      background: linear-gradient(135deg, var(--panel) 60%, #1a2e50);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .team-name {
+      font-size: clamp(1rem, 2.5vw, 1.6rem);
+      font-weight: 700;
+      flex: 1;
+      text-align: center;
+    }
+    .team-name.batting { color: var(--accent); }
+    .team-name.bowling { color: var(--muted); }
+    .vs { color: var(--muted); font-size: 0.85rem; font-weight: 400; flex-shrink: 0; }
+    .innings-badge {
+      background: var(--accent);
+      color: var(--bg);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+
+    /* ---- Central score ---- */
+    .score-section {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 24px;
+    }
+    .score-block {
+      text-align: center;
+    }
+    .score-main {
+      font-size: clamp(4rem, 14vw, 10rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -2px;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .score-main .wickets {
+      color: var(--accent);
+      font-size: 0.55em;
+    }
+    .score-sub {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      margin-top: 6px;
+      font-size: clamp(1rem, 2.5vw, 1.5rem);
+      color: var(--muted);
+    }
+    .score-sub span { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+    .score-sub .label { font-size: 0.55em; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .score-sub .val   { color: var(--text); font-weight: 700; }
+
+    /* Target / required row */
+    .chase-bar {
+      display: none;
+      background: linear-gradient(90deg, #1a2e50, var(--panel));
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px;
+      gap: 32px;
+      justify-content: center;
+      font-size: clamp(0.85rem, 1.8vw, 1.1rem);
+    }
+    .chase-bar.visible { display: flex; }
+    .chase-item { text-align: center; }
+    .chase-item .clabel { font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+    .chase-item .cval   { font-weight: 700; color: var(--accent2); font-size: 1.1em; }
+    .chase-item .cval.urgent { color: var(--red); }
+
+    /* ---- Bottom panel: batsmen + bowler ---- */
+    .players-bar {
+      background: var(--panel);
+      border-top: 2px solid var(--border);
+      padding: 10px 24px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .batsmen { display: flex; flex-direction: column; gap: 6px; }
+    .batsman-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .batsman-name {
+      font-size: clamp(0.8rem, 1.8vw, 1rem);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 20ch;
+    }
+    .batsman-score {
+      font-size: clamp(1rem, 2.2vw, 1.3rem);
+      font-weight: 900;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .batsman-balls {
+      font-size: 0.75em;
+      color: var(--muted);
+    }
+    .batting-on { color: #fff; }
+    .batting-off { color: var(--muted); opacity: 0.7; }
+
+    .divider-vert {
+      width: 1px;
+      background: var(--border);
+      align-self: stretch;
+    }
+
+    .bowler-block { text-align: right; }
+    .bowler-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+    .bowler-name {
+      font-size: clamp(0.85rem, 1.8vw, 1.05rem);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 20ch;
+      text-align: right;
+    }
+    .bowler-stats {
+      font-size: clamp(0.8rem, 1.6vw, 0.95rem);
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .bowler-stats b { color: var(--accent2); }
+
+    /* ---- No data overlay ---- */
+    #no-data {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(10,22,40,0.92);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      z-index: 10;
+    }
+    #no-data.show { display: flex; }
+    #no-data p { color: var(--muted); font-size: 1.1rem; }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div id="no-data" class="show">
+  <div class="spinner"></div>
+  <p>Connecting to scoreboard&hellip;</p>
+</div>
+
+<header>
+  <div class="club-name">Droylsden Cricket Club</div>
+  <div class="match-meta">
+    <span class="live-dot"></span><span id="hdr-ground"></span>
+    <br><span id="hdr-date"></span>
+  </div>
+</header>
+
+<main>
+  <!-- Teams -->
+  <div class="teams-banner">
+    <div class="team-name batting" id="team-batting">—</div>
+    <div class="vs">vs</div>
+    <div class="innings-badge" id="innings-badge">1st Innings</div>
+    <div class="vs">vs</div>
+    <div class="team-name bowling" id="team-bowling">—</div>
+  </div>
+
+  <!-- Central score -->
+  <div class="score-section">
+    <div class="score-block">
+      <div class="score-main">
+        <span id="total">0</span><span class="wickets">/<span id="wickets">0</span></span>
+      </div>
+      <div class="score-sub">
+        <span><span class="label">Overs</span><span class="val" id="overs">0</span></span>
+        <span><span class="label">Run rate</span><span class="val" id="run-rate">—</span></span>
+        <span><span class="label">Target</span><span class="val" id="target">—</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chase bar (2nd innings only) -->
+  <div class="chase-bar" id="chase-bar">
+    <div class="chase-item">
+      <div class="clabel">Need</div>
+      <div class="cval" id="need">—</div>
+    </div>
+    <div class="chase-item">
+      <div class="clabel">Req rate</div>
+      <div class="cval" id="req-rate">—</div>
+    </div>
+    <div class="chase-item">
+      <div class="clabel">DLS target</div>
+      <div class="cval" id="dls">—</div>
+    </div>
+  </div>
+</main>
+
+<!-- Players bar -->
+<div class="players-bar">
+  <div class="batsmen" id="batsmen-col">
+    <div class="batsman-row batting-on" id="bat-a-row">
+      <span class="batsman-name" id="bat-a-name">—</span>
+      <span class="batsman-score" id="bat-a-runs">0</span>
+      <span class="batsman-balls" id="bat-a-balls">(0)</span>
+    </div>
+    <div class="batsman-row batting-off" id="bat-b-row">
+      <span class="batsman-name" id="bat-b-name">—</span>
+      <span class="batsman-score" id="bat-b-runs">0</span>
+      <span class="batsman-balls" id="bat-b-balls">(0)</span>
+    </div>
+  </div>
+
+  <div class="divider-vert"></div>
+
+  <div class="bowler-block">
+    <div class="bowler-label">Bowling</div>
+    <div class="bowler-name" id="bowler-name">—</div>
+    <div class="bowler-stats">
+      <b id="bowler-wkts">0</b>-<b id="bowler-runs">0</b>
+      &nbsp;&nbsp;<span id="bowler-overs">0</span> ov
+    </div>
+  </div>
+</div>
+
+<script>
+  function stripDashes(val) {
+    // Convert '---' or '--5' display strings to clean numbers
+    if (!val) return '0';
+    const s = String(val).replace(/-/g, '');
+    return s === '' ? '0' : s;
+  }
+
+  function fmtOvers(val) {
+    if (!val) return '0';
+    const s = String(val).replace(/-/g, '');
+    return s === '' ? '0' : s;
+  }
+
+  function ordinal(n) {
+    const s = ['th','st','nd','rd'];
+    const v = n % 100;
+    return n + (s[(v-20)%10] || s[v] || s[0]);
+  }
+
+  function applyState(d) {
+    document.getElementById('no-data').classList.remove('show');
+
+    // Header
+    document.getElementById('hdr-ground').textContent = d.ground || '';
+    if (d.matchDate) {
+      const dt = new Date(d.matchDate);
+      document.getElementById('hdr-date').textContent = isNaN(dt)
+        ? d.matchDate
+        : dt.toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+    }
+
+    // Teams
+    document.getElementById('team-batting').textContent = d.battingTeam || d.homeTeam || '—';
+    document.getElementById('team-bowling').textContent = d.bowlingTeam || d.awayTeam || '—';
+    document.getElementById('innings-badge').textContent = ordinal(d.inningsNumber || 1) + ' Innings';
+
+    // Scores
+    document.getElementById('total').textContent   = stripDashes(d.total);
+    document.getElementById('wickets').textContent = stripDashes(d.wickets);
+    document.getElementById('overs').textContent   = fmtOvers(d.overs);
+    document.getElementById('run-rate').textContent = d.currentRate != null
+      ? d.currentRate.toFixed(2) : '—';
+
+    const tgt = stripDashes(d.target);
+    document.getElementById('target').textContent = tgt === '0' ? '—' : tgt;
+
+    // Chase bar
+    const hasChase = d.inningsNumber > 1 && d.requiredRuns != null;
+    const chaseBar = document.getElementById('chase-bar');
+    if (hasChase) {
+      chaseBar.classList.add('visible');
+      const needEl = document.getElementById('need');
+      needEl.textContent = d.requiredRuns;
+      needEl.className = 'cval' + (d.requiredRuns > 0 && d.requiredRate > 9 ? ' urgent' : '');
+      document.getElementById('req-rate').textContent = d.requiredRate != null
+        ? d.requiredRate.toFixed(2) : '—';
+      const dlsVal = stripDashes(d.dls);
+      document.getElementById('dls').textContent = dlsVal === '0' ? '—' : dlsVal;
+    } else {
+      chaseBar.classList.remove('visible');
+    }
+
+    // Batsmen
+    const batAName = d.batA && d.batA.name;
+    const batBName = d.batB && d.batB.name;
+    document.getElementById('bat-a-name').textContent  = batAName || '—';
+    document.getElementById('bat-a-runs').textContent  = stripDashes(d.batA && d.batA.runs);
+    document.getElementById('bat-a-balls').textContent = d.batA && d.batA.balls ? `(${d.batA.balls})` : '';
+    document.getElementById('bat-b-name').textContent  = batBName || '—';
+    document.getElementById('bat-b-runs').textContent  = stripDashes(d.batB && d.batB.runs);
+    document.getElementById('bat-b-balls').textContent = d.batB && d.batB.balls ? `(${d.batB.balls})` : '';
+
+    // Bowler
+    document.getElementById('bowler-name').textContent  = (d.bowler && d.bowler.name) || '—';
+    document.getElementById('bowler-wkts').textContent  = (d.bowler && d.bowler.wickets) || '0';
+    document.getElementById('bowler-runs').textContent  = (d.bowler && d.bowler.runs)    || '0';
+    document.getElementById('bowler-overs').textContent = (d.bowler && d.bowler.overs)   || '0';
+  }
+
+  // Connect to SSE stream
+  function connect() {
+    const es = new EventSource('/api/spectator/stream');
+    es.onmessage = (e) => {
+      try { applyState(JSON.parse(e.data)); } catch {}
+    };
+    es.onerror = () => {
+      document.getElementById('no-data').classList.add('show');
+      es.close();
+      setTimeout(connect, 3000);
+    };
+  }
+
+  connect();
+</script>
+</body>
+</html>

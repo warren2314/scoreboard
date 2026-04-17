@@ -28,6 +28,30 @@ const state = {
   lastResponse: null
 };
 
+// Rich spectator display state — combines BLE live numbers with Play Cricket API context
+const spectatorState = {
+  homeTeam:      '',
+  awayTeam:      '',
+  battingTeam:   '',
+  bowlingTeam:   '',
+  inningsNumber: 1,
+  total:         '--0',
+  wickets:       '0',
+  overs:         '-0',
+  batA:          { name: '', runs: '--0', balls: 0 },
+  batB:          { name: '', runs: '--0', balls: 0 },
+  bowler:        { name: '', overs: '0', wickets: '0', runs: '0' },
+  target:        '--0',
+  dls:           '--0',
+  requiredRuns:  null,
+  requiredRate:  null,
+  currentRate:   null,
+  partnership:   null,
+  ground:        '',
+  matchDate:     null,
+  lastApiUpdate: null
+};
+
 // --- Serial port ---
 
 let port = null;
@@ -204,6 +228,81 @@ function parsePlayCricketScore(json) {
   };
 }
 
+// Extract rich context from a Play Cricket API response and push to spectator clients.
+// Called after every successful API poll.
+function parseSpectatorData(json) {
+  const match = json.match_details && json.match_details[0];
+  if (!match) return;
+  const innings = match.innings;
+  if (!innings || innings.length === 0) return;
+
+  const cur = innings[innings.length - 1];
+
+  spectatorState.homeTeam      = match.home_team_name || '';
+  spectatorState.awayTeam      = match.away_team_name || '';
+  spectatorState.battingTeam   = cur.team_batting_name || '';
+  spectatorState.bowlingTeam   = spectatorState.battingTeam === spectatorState.homeTeam
+    ? spectatorState.awayTeam : spectatorState.homeTeam;
+  spectatorState.inningsNumber = parseInt(cur.innings_number, 10) || 1;
+  spectatorState.ground        = match.ground_name || '';
+  spectatorState.matchDate     = match.match_date || null;
+
+  // Not-out batsmen
+  const notOut = (cur.bat || []).filter(b => !b.how_out || b.how_out.trim() === '');
+  if (notOut[0]) {
+    spectatorState.batA.name  = notOut[0].batsman_name || '';
+    spectatorState.batA.runs  = fmtScore(notOut[0].runs, 3);
+    spectatorState.batA.balls = parseInt(notOut[0].balls_faced, 10) || 0;
+  }
+  if (notOut[1]) {
+    spectatorState.batB.name  = notOut[1].batsman_name || '';
+    spectatorState.batB.runs  = fmtScore(notOut[1].runs, 3);
+    spectatorState.batB.balls = parseInt(notOut[1].balls_faced, 10) || 0;
+  }
+
+  // Current bowler — last bowl entry that has overs recorded
+  const bowlers = (cur.bowl || []).filter(b => b.overs && parseFloat(b.overs) > 0);
+  if (bowlers.length > 0) {
+    const bl = bowlers[bowlers.length - 1];
+    spectatorState.bowler.name    = bl.bowler_name || '';
+    spectatorState.bowler.overs   = bl.overs || '0';
+    spectatorState.bowler.wickets = String(bl.wickets || '0');
+    spectatorState.bowler.runs    = String(bl.runs || '0');
+  }
+
+  // Current run rate
+  const totalRuns  = parseInt(cur.runs, 10) || 0;
+  const oversFloat = parseFloat(cur.overs) || 0;
+  spectatorState.currentRate = oversFloat > 0
+    ? Math.round((totalRuns / oversFloat) * 100) / 100
+    : null;
+
+  // Target / DLS / required run rate
+  if (innings.length >= 2 && spectatorState.inningsNumber > 1) {
+    let targetRuns;
+    if (cur.revised_target_runs && cur.revised_target_runs !== '') {
+      targetRuns = parseInt(cur.revised_target_runs, 10);
+      spectatorState.dls = fmtScore(cur.revised_target_runs, 3);
+    } else {
+      targetRuns = parseInt(innings[0].runs || '0', 10) + 1;
+      spectatorState.dls = '---';
+    }
+    spectatorState.requiredRuns = Math.max(0, targetRuns - totalRuns);
+    const matchOvers    = parseInt(match.overs || '40', 10);
+    const remainingOvers = matchOvers - oversFloat;
+    spectatorState.requiredRate = remainingOvers > 0
+      ? Math.round((spectatorState.requiredRuns / remainingOvers) * 100) / 100
+      : null;
+  } else {
+    spectatorState.requiredRuns = null;
+    spectatorState.requiredRate = null;
+    spectatorState.dls = '---';
+  }
+
+  spectatorState.lastApiUpdate = new Date().toISOString();
+  pushSpectatorUpdate();
+}
+
 async function doPlayCricketSync() {
   if (!pcState.syncing) return;
   try {
@@ -232,6 +331,8 @@ async function doPlayCricketSync() {
 
     pcState.lastSync  = new Date().toISOString();
     pcState.lastError = null;
+    // Update spectator display with rich API context
+    try { parseSpectatorData(json); } catch (e) { console.error('[Spectator] parseSpectatorData error:', e.message); }
   } catch (err) {
     pcState.lastError = err.message;
     console.error(`[PlayCricket] Sync error: ${err.message}`);
@@ -297,6 +398,16 @@ app.post('/api/score', requireAdmin, (req, res) => {
   state.batsmanB = batsmanB;
   state.target = target;
   state.dls = dls;
+
+  // Mirror live numbers into spectator display and push update
+  spectatorState.total       = total;
+  spectatorState.wickets     = wickets;
+  spectatorState.overs       = overs;
+  spectatorState.batA.runs   = batsmanA;
+  spectatorState.batB.runs   = batsmanB;
+  spectatorState.target      = target;
+  spectatorState.dls         = dls;
+  pushSpectatorUpdate();
 
   // Command format: 4,batA,total,batB,target,wickets,overs,dls#
   const cmd = `4,${batsmanA},${total},${batsmanB},${target},${wickets},${overs},${dls}#`;
@@ -389,6 +500,16 @@ app.post('/api/serial', (req, res) => {
 
 // SSE stream of Arduino serial responses
 const serialClients = [];
+
+// SSE stream for spectator TV display
+const spectatorClients = [];
+
+function pushSpectatorUpdate() {
+  const data = JSON.stringify(spectatorState);
+  for (const client of spectatorClients) {
+    client.write(`data: ${data}\n\n`);
+  }
+}
 
 app.get('/api/serial/stream', (req, res) => {
   res.writeHead(200, {
@@ -485,6 +606,74 @@ app.get('/api/playcricket/usb-config', (req, res) => {
     }
   }
   res.status(404).json({ error: 'No scoreboard.json found on any USB drive. Make sure the USB is inserted and contains a scoreboard.json file.' });
+});
+
+// Spectator TV display — current state snapshot
+app.get('/api/spectator', (req, res) => {
+  res.json(spectatorState);
+});
+
+// Spectator TV display — SSE stream (sends full state on connect, then on every update)
+app.get('/api/spectator/stream', (req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+  res.write(`data: ${JSON.stringify(spectatorState)}\n\n`);
+  spectatorClients.push(res);
+  req.on('close', () => {
+    const idx = spectatorClients.indexOf(res);
+    if (idx >= 0) spectatorClients.splice(idx, 1);
+  });
+});
+
+// Serve the spectator HTML page
+app.get('/spectator', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'spectator.html'));
+});
+
+// Find today's match for Droylsden CC (site_id 2367)
+app.get('/api/playcricket/find-match', requireAdmin, (req, res) => {
+  const { apiToken } = req.query;
+  if (!apiToken) return res.status(400).json({ error: 'apiToken query parameter is required' });
+
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const year  = new Date().getFullYear();
+  const pcPath = `/api/v2/matches.json?site_id=2367&season=${year}&api_token=${encodeURIComponent(apiToken)}`;
+
+  const pcReq = https.request({ hostname: 'play-cricket.com', path: pcPath }, (pcRes) => {
+    let data = '';
+    pcRes.on('data', chunk => { data += chunk; });
+    pcRes.on('end', () => {
+      if (pcRes.statusCode !== 200) {
+        return res.status(502).json({ error: `Play Cricket API returned HTTP ${pcRes.statusCode}` });
+      }
+      let json;
+      try { json = JSON.parse(data); } catch {
+        return res.status(502).json({ error: 'Invalid JSON from Play Cricket API' });
+      }
+      const all = json.matches || [];
+      const todays = all.filter(m => m.match_date && m.match_date.startsWith(today));
+      if (todays.length === 0) {
+        return res.json({ ok: false, message: `No matches found for today (${today})`, matches: [] });
+      }
+      res.json({
+        ok: true,
+        today,
+        matches: todays.map(m => ({
+          id:          m.id,
+          home:        m.home_team_name,
+          away:        m.away_team_name,
+          date:        m.match_date,
+          ground:      m.ground_name,
+          competition: m.competition_name
+        }))
+      });
+    });
+  });
+  pcReq.on('error', err => res.status(502).json({ error: err.message }));
+  pcReq.end();
 });
 
 // --- Start ---

@@ -45,10 +45,19 @@
     </div>
     <div class="admin-actions" style="margin-top:0">
       <button class="admin-btn" id="btn-pc-usb">Load from USB</button>
+      <button class="admin-btn" id="btn-pc-find">Find Today's Match</button>
       <button class="admin-btn" id="btn-pc-start">Start Sync</button>
       <button class="admin-btn" id="btn-pc-stop">Stop Sync</button>
     </div>
     <div id="pc-status" class="status-bar">Not syncing</div>
+  </div>
+
+  <div class="pc-section" style="margin-top:12px">
+    <div class="pc-heading">Spectator Display</div>
+    <div class="admin-actions" style="margin-top:8px">
+      <a href="/spectator" target="_blank" class="admin-btn" style="text-decoration:none;display:inline-block;text-align:center">Open TV Display</a>
+    </div>
+    <div id="spectator-status" class="status-bar" style="white-space:pre-line">Not yet loaded</div>
   </div>
 
   <div class="connection">
@@ -164,6 +173,28 @@
       };
     }
 
+    document.getElementById('btn-pc-find').addEventListener('click', async () => {
+      const apiToken = document.getElementById('pc-api-token').value.trim();
+      if (!apiToken) { showPcStatus('Enter your API Token first, then click Find Today\'s Match', true); return; }
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      showPcStatus('Searching Play Cricket for today\'s matches...', false);
+      try {
+        const res  = await fetch(`/api/playcricket/find-match?apiToken=${encodeURIComponent(apiToken)}`, { headers });
+        const data = await res.json();
+        if (data.ok && data.matches.length > 0) {
+          const m = data.matches[0];
+          document.getElementById('pc-match-id').value = m.id;
+          const allMatches = data.matches.map(x => `${x.id}: ${x.home} vs ${x.away}${x.competition ? ' (' + x.competition + ')' : ''}`).join('\n');
+          showPcStatus(`Found ${data.matches.length} match(es) for ${data.today}:\n${allMatches}\n\nMatch ID auto-filled with first match. Edit if needed then Start Sync.`, false);
+        } else {
+          showPcStatus(data.message || data.error || 'No matches found', !data.ok);
+        }
+      } catch (err) {
+        showPcStatus(`Connection error: ${err.message}`, true);
+      }
+    });
+
     document.getElementById('btn-pc-usb').addEventListener('click', async () => {
       showPcStatus('Looking for USB stick...', false);
       try {
@@ -215,6 +246,28 @@
         showPcStatus(`Connection error: ${err.message}`, true);
       }
     });
+
+    // Poll spectator state
+    async function pollSpectator() {
+      try {
+        const res  = await fetch('/api/spectator');
+        const d    = await res.json();
+        const el   = document.getElementById('spectator-status');
+        const rate = d.currentRate != null ? d.currentRate.toFixed(2) : '—';
+        const lines = [
+          `${d.battingTeam || '—'} batting vs ${d.bowlingTeam || '—'}`,
+          `Score: ${(d.total||'').replace(/-/g,'_')}/${d.wickets||'0'}  Overs: ${(d.overs||'').replace(/-/g,'_')}  RR: ${rate}`,
+          d.batA && d.batA.name ? `  ${d.batA.name}: ${(d.batA.runs||'').replace(/-/g,'_')} (${d.batA.balls||0}b)` : '',
+          d.batB && d.batB.name ? `  ${d.batB.name}: ${(d.batB.runs||'').replace(/-/g,'_')} (${d.batB.balls||0}b)` : '',
+          d.bowler && d.bowler.name ? `Bowling: ${d.bowler.name}  ${d.bowler.wickets}-${d.bowler.runs} (${d.bowler.overs} ov)` : '',
+          d.lastApiUpdate ? `Last API: ${new Date(d.lastApiUpdate).toLocaleTimeString()}` : 'API not yet synced'
+        ].filter(Boolean).join('\n');
+        el.textContent  = lines;
+        el.className    = 'status-bar ok';
+      } catch { /* server offline */ }
+    }
+    pollSpectator();
+    setInterval(pollSpectator, 5000);
 
     // Poll connection status
     async function pollStatus() {
