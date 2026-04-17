@@ -311,6 +311,60 @@ class ScoreboardAdvertisement(dbus.service.Object):
 
 
 # ---------------------------------------------------------------------------
+# Pairing agent — auto-accepts without asking for a PIN
+# ---------------------------------------------------------------------------
+
+AGENT_MANAGER_IFACE = 'org.bluez.AgentManager1'
+AGENT_IFACE         = 'org.bluez.Agent1'
+AGENT_PATH          = '/org/bluez/scoreboard/agent'
+
+
+class AutoPairAgent(dbus.service.Object):
+    """NoInputNoOutput agent — accepts all pairing requests silently."""
+
+    def __init__(self, bus):
+        dbus.service.Object.__init__(self, bus, AGENT_PATH)
+
+    @dbus.service.method(AGENT_IFACE, in_signature='', out_signature='')
+    def Release(self):
+        log.info('Agent released')
+
+    @dbus.service.method(AGENT_IFACE, in_signature='os', out_signature='')
+    def AuthorizeService(self, device, uuid):
+        log.info('AuthorizeService: %s %s — auto-approved', device, uuid)
+
+    @dbus.service.method(AGENT_IFACE, in_signature='o', out_signature='')
+    def RequestAuthorization(self, device):
+        log.info('RequestAuthorization: %s — auto-approved', device)
+
+    @dbus.service.method(AGENT_IFACE, in_signature='o', out_signature='s')
+    def RequestPinCode(self, device):
+        log.info('RequestPinCode: %s — returning 0000', device)
+        return '0000'
+
+    @dbus.service.method(AGENT_IFACE, in_signature='o', out_signature='u')
+    def RequestPasskey(self, device):
+        log.info('RequestPasskey: %s — returning 0', device)
+        return dbus.UInt32(0)
+
+    @dbus.service.method(AGENT_IFACE, in_signature='ouq', out_signature='')
+    def DisplayPasskey(self, device, passkey, entered):
+        log.info('DisplayPasskey: %s %d', device, passkey)
+
+    @dbus.service.method(AGENT_IFACE, in_signature='os', out_signature='')
+    def DisplayPinCode(self, device, pincode):
+        log.info('DisplayPinCode: %s %s', device, pincode)
+
+    @dbus.service.method(AGENT_IFACE, in_signature='ouq', out_signature='')
+    def RequestConfirmation(self, device, passkey):
+        log.info('RequestConfirmation: %s %d — auto-confirmed', device, passkey)
+
+    @dbus.service.method(AGENT_IFACE, in_signature='o', out_signature='')
+    def Cancel(self):
+        log.info('Agent cancel')
+
+
+# ---------------------------------------------------------------------------
 # Adapter discovery & main
 # ---------------------------------------------------------------------------
 
@@ -344,6 +398,16 @@ def main():
 
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
     bus = dbus.SystemBus()
+
+    # Register auto-pairing agent so the Pi never asks for a PIN
+    agent = AutoPairAgent(bus)
+    agent_manager = dbus.Interface(
+        bus.get_object(BLUEZ_SERVICE_NAME, '/org/bluez'),
+        AGENT_MANAGER_IFACE
+    )
+    agent_manager.RegisterAgent(AGENT_PATH, 'NoInputNoOutput')
+    agent_manager.RequestDefaultAgent(AGENT_PATH)
+    log.info('Auto-pairing agent registered (no PIN required)')
 
     adapter_path = find_adapter(bus)
     if not adapter_path:
