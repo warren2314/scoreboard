@@ -441,6 +441,51 @@ app.post('/api/playcricket/stop', requireAdmin, (req, res) => {
   res.json({ ok: true, message: 'Play Cricket sync stopped' });
 });
 
+// Find today's matches for Droylsden CC (site_id 2367)
+// Play Cricket returns match_date as DD/MM/YYYY
+app.get('/api/playcricket/find-match', requireAdmin, (req, res) => {
+  const { apiToken } = req.query;
+  if (!apiToken) return res.status(400).json({ error: 'apiToken query parameter is required' });
+
+  const d     = new Date();
+  const today = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  const year  = d.getFullYear();
+  const path  = `/api/v2/matches.json?site_id=2367&season=${year}&api_token=${encodeURIComponent(apiToken)}`;
+
+  const pcReq = https.request({ hostname: 'www.play-cricket.com', path }, (pcRes) => {
+    let data = '';
+    pcRes.on('data', chunk => { data += chunk; });
+    pcRes.on('end', () => {
+      if (pcRes.statusCode !== 200) {
+        return res.status(502).json({ error: `Play Cricket API returned HTTP ${pcRes.statusCode}` });
+      }
+      let json;
+      try { json = JSON.parse(data); } catch {
+        return res.status(502).json({ error: 'Invalid JSON from Play Cricket API' });
+      }
+      const all    = json.matches || [];
+      const todays = all.filter(m => m.match_date === today);
+      if (todays.length === 0) {
+        return res.json({ ok: false, message: `No matches found for today (${today})`, matches: [] });
+      }
+      res.json({
+        ok: true,
+        today,
+        matches: todays.map(m => ({
+          id:          m.id,
+          home:        m.home_team_name,
+          away:        m.away_team_name,
+          date:        m.match_date,
+          ground:      m.ground_name,
+          competition: m.competition_name
+        }))
+      });
+    });
+  });
+  pcReq.on('error', err => res.status(502).json({ error: err.message }));
+  pcReq.end();
+});
+
 app.post('/api/reboot', requireAdmin, (req, res) => {
   res.json({ ok: true, message: 'Rebooting...' });
   setTimeout(() => exec('shutdown -r now'), 500);
