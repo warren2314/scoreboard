@@ -142,7 +142,7 @@ function fmtScore(n, len) {
 function fetchPlayCricket(matchId, apiToken) {
   return new Promise((resolve, reject) => {
     const path = `/api/v2/match_detail.json?id=${encodeURIComponent(matchId)}&api_token=${encodeURIComponent(apiToken)}`;
-    const req = https.request({ hostname: 'play-cricket.com', path }, (res) => {
+    const req = https.request({ hostname: 'www.play-cricket.com', path }, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
@@ -248,7 +248,11 @@ function startPlayCricketSync(matchId, apiToken, dryRun = false) {
 function stopPlayCricketSync() {
   if (pcState.intervalId) { clearInterval(pcState.intervalId); pcState.intervalId = null; }
   pcState.syncing = false;
-  console.log('[PlayCricket] Sync stopped');
+  sendToArduino('clear#');
+  state.total = '---'; state.wickets = '-'; state.overs = '--';
+  state.batsmanA = '---'; state.batsmanB = '---';
+  state.target = '---'; state.dls = '---';
+  console.log('[PlayCricket] Sync stopped — display cleared');
 }
 
 // --- Auth middleware ---
