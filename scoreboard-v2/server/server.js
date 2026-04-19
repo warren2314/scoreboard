@@ -172,7 +172,7 @@ function fmtScore(n, len) {
 
 function fetchPlayCricket(matchId, apiToken) {
   return new Promise((resolve, reject) => {
-    const path = `/api/v2/match_detail.json?id=${encodeURIComponent(matchId)}&api_token=${encodeURIComponent(apiToken)}`;
+    const path = `/api/v2/match_detail.json?id=${encodeURIComponent(matchId)}&site_id=11685&api_token=${encodeURIComponent(apiToken)}`;
     const req = https.request({ hostname: 'www.play-cricket.com', path }, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
@@ -569,7 +569,7 @@ app.post('/api/playcricket/stop', requireAdmin, (req, res) => {
   res.json({ ok: true, message: 'Play Cricket sync stopped' });
 });
 
-// Find today's matches for Droylsden CC (site_id 2367)
+// Find today's matches for Droylsden CC (site_id 11685)
 // Play Cricket returns match_date as DD/MM/YYYY
 app.get('/api/playcricket/find-match', requireAdmin, (req, res) => {
   const { apiToken } = req.query;
@@ -578,7 +578,7 @@ app.get('/api/playcricket/find-match', requireAdmin, (req, res) => {
   const d     = new Date();
   const today = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
   const year  = d.getFullYear();
-  const path  = `/api/v2/matches.json?site_id=2367&season=${year}&api_token=${encodeURIComponent(apiToken)}`;
+  const path  = `/api/v2/matches.json?site_id=11685&season=${year}&api_token=${encodeURIComponent(apiToken)}`;
 
   const pcReq = https.request({ hostname: 'www.play-cricket.com', path }, (pcRes) => {
     let data = '';
@@ -682,46 +682,6 @@ app.get('/spectator', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'spectator.html'));
 });
 
-// Find today's match for Droylsden CC (site_id 2367)
-app.get('/api/playcricket/find-match', requireAdmin, (req, res) => {
-  const { apiToken } = req.query;
-  if (!apiToken) return res.status(400).json({ error: 'apiToken query parameter is required' });
-
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const year  = new Date().getFullYear();
-  const pcPath = `/api/v2/matches.json?site_id=2367&season=${year}&api_token=${encodeURIComponent(apiToken)}`;
-
-  const pcReq = https.request({ hostname: 'play-cricket.com', path: pcPath }, (pcRes) => {
-    let data = '';
-    pcRes.on('data', chunk => { data += chunk; });
-    pcRes.on('end', () => {
-      if (pcRes.statusCode !== 200) {
-        return res.status(502).json({ error: `Play Cricket API returned HTTP ${pcRes.statusCode}` });
-      }
-      let json;
-      try { json = JSON.parse(data); } catch {
-        return res.status(502).json({ error: 'Invalid JSON from Play Cricket API' });
-      }
-      const all = json.matches || [];
-      const todays = all.filter(m => m.match_date && m.match_date.startsWith(today));
-      if (todays.length === 0) {
-        return res.json({ ok: false, message: `No matches found for today (${today})`, matches: [] });
-      }
-      res.json({
-        ok: true,
-        today,
-        matches: todays.map(m => ({
-          id:          m.id,
-          home:        m.home_team_name,
-          away:        m.away_team_name,
-          date:        m.match_date,
-          ground:      m.ground_name,
-          competition: m.competition_name
-        }))
-      });
-    });
-  });
-  pcReq.on('error', err => res.status(502).json({ error: err.message }));
   pcReq.end();
 });
 
