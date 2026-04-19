@@ -731,9 +731,6 @@ app.get('/spectator', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'spectator.html'));
 });
 
-  pcReq.end();
-});
-
 // --- Start ---
 
 openSerial();
