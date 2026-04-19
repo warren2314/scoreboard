@@ -5,6 +5,35 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Admin - Droylsden Cricket Club Scoreboard</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    .match-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 6px 0;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .match-card:hover, .match-card.selected {
+      background: rgba(100,160,100,0.2);
+      border-color: #4caf50;
+    }
+    .match-card .match-teams { font-weight: 700; font-size: 1rem; }
+    .match-card .match-meta  { font-size: 0.78rem; color: #999; margin-top: 2px; }
+    .token-hint {
+      font-size: 0.8rem;
+      color: #7a9f7a;
+      margin: 4px 0 8px;
+    }
+    .section-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #888;
+      margin: 14px 0 6px;
+    }
+  </style>
 </head>
 <body>
   <div class="header">
@@ -27,31 +56,46 @@
 
   <div id="status" class="status-bar">Ready</div>
 
+  <!-- ── Play Cricket Sync ── -->
   <div class="pc-section">
     <div class="pc-heading">Play Cricket Live Sync</div>
+
+    <!-- API token (one-time admin setup) -->
+    <div class="section-label">API Token (one-time setup)</div>
+    <div id="token-hint" class="token-hint" style="display:none"></div>
     <div class="token-input">
-      <label for="pc-match-id">Match ID:</label>
-      <input type="text" id="pc-match-id" placeholder="e.g. 4789123" inputmode="numeric">
+      <label for="pc-api-token">Token:</label>
+      <input type="password" id="pc-api-token" placeholder="Leave blank to use saved token">
     </div>
-    <div class="token-input">
-      <label for="pc-api-token">API Token:</label>
-      <input type="password" id="pc-api-token" placeholder="Your Play Cricket API token">
+    <div class="admin-actions" style="margin-top:4px">
+      <button class="admin-btn" id="btn-save-token">Save Token</button>
+      <button class="admin-btn danger" id="btn-clear-token" style="display:none">Clear</button>
     </div>
-    <div class="token-input" style="margin-top:8px">
+
+    <hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:14px 0">
+
+    <!-- Match picker -->
+    <div class="section-label">Today's Matches</div>
+    <div class="admin-actions" style="margin-top:0">
+      <button class="admin-btn" id="btn-pc-find">Find Today's Matches</button>
+    </div>
+    <div id="match-list" style="margin-top:8px"></div>
+
+    <!-- Start / Stop -->
+    <div class="token-input" style="margin-top:10px">
       <label for="pc-dry-run" style="display:flex;align-items:center;gap:8px;cursor:pointer">
         <input type="checkbox" id="pc-dry-run">
-        Dry Run (fetch &amp; log only &mdash; do NOT update scoreboard)
+        Dry Run (log only &mdash; do NOT update scoreboard)
       </label>
     </div>
     <div class="admin-actions" style="margin-top:0">
-      <button class="admin-btn" id="btn-pc-usb">Load from USB</button>
-      <button class="admin-btn" id="btn-pc-find">Find Today's Match</button>
-      <button class="admin-btn" id="btn-pc-start">Start Sync</button>
+      <button class="admin-btn" id="btn-pc-start" disabled>Start Sync</button>
       <button class="admin-btn" id="btn-pc-stop">Stop Sync</button>
     </div>
-    <div id="pc-status" class="status-bar">Not syncing</div>
+    <div id="pc-status" class="status-bar" style="white-space:pre-line">Not syncing</div>
   </div>
 
+  <!-- ── Spectator Display ── -->
   <div class="pc-section" style="margin-top:12px">
     <div class="pc-heading">Spectator Display</div>
     <div class="admin-actions" style="margin-top:8px">
@@ -74,38 +118,37 @@
   </div>
 
   <script>
-    const statusBar = document.getElementById('status');
-    const tokenInput = document.getElementById('token');
+    const statusBar   = document.getElementById('status');
+    const tokenInput  = document.getElementById('token');
     const tokenStatus = document.getElementById('token-status');
 
-    // Restore saved token on page load
+    // Restore admin token from localStorage
     const savedAdminToken = localStorage.getItem('authToken');
     if (savedAdminToken) tokenInput.value = savedAdminToken;
 
-    function getToken() {
-      return tokenInput.value;
+    function getToken() { return tokenInput.value; }
+
+    function getAuthHeaders() {
+      const token = getToken();
+      if (!token) { showStatus('Enter the admin token first', true); return null; }
+      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
     }
 
-    // Live token verification — runs on input (debounced) and on load
+    // Live admin token verification
     let tokenCheckTimer = null;
     async function verifyToken() {
       const token = getToken();
-      if (!token) {
-        tokenStatus.textContent = 'Enter token';
-        tokenStatus.className = 'token-status';
-        return;
-      }
+      if (!token) { tokenStatus.textContent = 'Enter token'; tokenStatus.className = 'token-status'; return; }
       tokenStatus.textContent = 'Checking...';
       tokenStatus.className = 'token-status checking';
       try {
-        const res = await fetch('/api/auth/check', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const res  = await fetch('/api/auth/check', { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await res.json();
         if (data.valid) {
           tokenStatus.textContent = 'Active';
           tokenStatus.className = 'token-status ok';
           localStorage.setItem('authToken', token);
+          loadPcConfig(); // load PC config once admin is verified
         } else {
           tokenStatus.textContent = 'Invalid';
           tokenStatus.className = 'token-status error';
@@ -115,10 +158,7 @@
         tokenStatus.className = 'token-status error';
       }
     }
-    tokenInput.addEventListener('input', () => {
-      clearTimeout(tokenCheckTimer);
-      tokenCheckTimer = setTimeout(verifyToken, 400);
-    });
+    tokenInput.addEventListener('input', () => { clearTimeout(tokenCheckTimer); tokenCheckTimer = setTimeout(verifyToken, 400); });
     verifyToken();
 
     function showStatus(msg, isError) {
@@ -130,14 +170,11 @@
       const headers = { 'Content-Type': 'application/json' };
       if (needsAuth) {
         const token = getToken();
-        if (!token) {
-          showStatus('Enter the admin token first', true);
-          return;
-        }
+        if (!token) { showStatus('Enter the admin token first', true); return; }
         headers['Authorization'] = `Bearer ${token}`;
       }
       try {
-        const res = await fetch(url, { method: 'POST', headers });
+        const res  = await fetch(url, { method: 'POST', headers });
         const data = await res.json();
         showStatus(data.message || data.error, !data.ok);
       } catch (err) {
@@ -146,93 +183,114 @@
     }
 
     document.getElementById('btn-test').addEventListener('click', () => apiPost('/api/test', false));
-    document.getElementById('btn-reboot').addEventListener('click', () => {
-      if (confirm('Reboot the Pi?')) apiPost('/api/reboot', true);
-    });
-    document.getElementById('btn-shutdown').addEventListener('click', () => {
-      if (confirm('Shut down the Pi? You will need physical access to turn it back on.')) apiPost('/api/shutdown', true);
-    });
+    document.getElementById('btn-reboot').addEventListener('click',   () => { if (confirm('Reboot the Pi?')) apiPost('/api/reboot', true); });
+    document.getElementById('btn-shutdown').addEventListener('click', () => { if (confirm('Shut down the Pi? You will need physical access to turn it back on.')) apiPost('/api/shutdown', true); });
 
-    // --- Play Cricket sync ---
+    // ── Play Cricket config (token persistence) ──────────────────────────────
+
     const pcStatusBar = document.getElementById('pc-status');
-
     function showPcStatus(msg, isError) {
       pcStatusBar.textContent = msg;
       pcStatusBar.className = isError ? 'status-bar error' : 'status-bar ok';
     }
 
-    function getAuthHeaders() {
-      const token = getToken();
-      if (!token) {
-        showStatus('Enter the admin token first', true);
-        return null;
-      }
-      return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      };
-    }
-
-    document.getElementById('btn-pc-find').addEventListener('click', async () => {
-      const apiToken = document.getElementById('pc-api-token').value.trim();
-      if (!apiToken) { showPcStatus('Enter your API Token first, then click Find Today\'s Match', true); return; }
+    async function loadPcConfig() {
       const headers = getAuthHeaders();
       if (!headers) return;
-      showPcStatus('Searching Play Cricket for today\'s matches...', false);
       try {
-        const res  = await fetch(`/api/playcricket/find-match?apiToken=${encodeURIComponent(apiToken)}`, { headers });
+        const res  = await fetch('/api/playcricket/config', { headers });
         const data = await res.json();
-        if (data.ok && data.matches.length > 0) {
-          const m = data.matches[0];
-          document.getElementById('pc-match-id').value = m.id;
-          const allMatches = data.matches.map(x => `${x.id}: ${x.home} vs ${x.away}${x.competition ? ' (' + x.competition + ')' : ''}`).join('\n');
-          showPcStatus(`Found ${data.matches.length} match(es) for ${data.today}:\n${allMatches}\n\nMatch ID auto-filled with first match. Edit if needed then Start Sync.`, false);
+        const hint    = document.getElementById('token-hint');
+        const clearBtn = document.getElementById('btn-clear-token');
+        if (data.hasSavedToken) {
+          hint.textContent = `Saved token: ${data.tokenHint}`;
+          hint.style.display = 'block';
+          clearBtn.style.display = '';
+          document.getElementById('pc-api-token').placeholder = 'Leave blank to use saved token';
         } else {
-          showPcStatus(data.message || data.error || 'No matches found', !data.ok);
+          hint.style.display = 'none';
+          clearBtn.style.display = 'none';
+          document.getElementById('pc-api-token').placeholder = 'Play Cricket API token';
         }
-      } catch (err) {
-        showPcStatus(`Connection error: ${err.message}`, true);
-      }
+      } catch {}
+    }
+
+    document.getElementById('btn-save-token').addEventListener('click', async () => {
+      const apiToken = document.getElementById('pc-api-token').value.trim();
+      if (!apiToken) { showPcStatus('Enter a token to save', true); return; }
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      try {
+        const res  = await fetch('/api/playcricket/config', { method: 'POST', headers, body: JSON.stringify({ apiToken }) });
+        const data = await res.json();
+        showPcStatus(data.message || data.error, !data.ok);
+        if (data.ok) { document.getElementById('pc-api-token').value = ''; loadPcConfig(); }
+      } catch (err) { showPcStatus(`Error: ${err.message}`, true); }
     });
 
-    document.getElementById('btn-pc-usb').addEventListener('click', async () => {
-      showPcStatus('Looking for USB stick...', false);
+    document.getElementById('btn-clear-token').addEventListener('click', async () => {
+      if (!confirm('Clear the saved API token?')) return;
+      const headers = getAuthHeaders();
+      if (!headers) return;
       try {
-        const res  = await fetch('/api/playcricket/usb-config');
+        const res  = await fetch('/api/playcricket/config', { method: 'DELETE', headers });
         const data = await res.json();
-        if (data.ok) {
-          document.getElementById('pc-match-id').value  = data.matchId;
-          document.getElementById('pc-api-token').value = data.apiToken;
-          showPcStatus(`Loaded from USB — Match ID: ${data.matchId}. Press Start Sync when ready.`, false);
+        showPcStatus(data.message || data.error, !data.ok);
+        if (data.ok) loadPcConfig();
+      } catch (err) { showPcStatus(`Error: ${err.message}`, true); }
+    });
+
+    // ── Match picker ──────────────────────────────────────────────────────────
+
+    let selectedMatchId = null;
+
+    document.getElementById('btn-pc-find').addEventListener('click', async () => {
+      const headers = getAuthHeaders();
+      if (!headers) return;
+      const matchList = document.getElementById('match-list');
+      matchList.innerHTML = '<div style="color:#aaa;font-size:0.9rem">Searching Play Cricket...</div>';
+      showPcStatus('', false);
+      try {
+        const res  = await fetch('/api/playcricket/find-match', { headers });
+        const data = await res.json();
+        if (data.ok && data.matches.length > 0) {
+          matchList.innerHTML = data.matches.map(m => `
+            <div class="match-card" data-id="${m.id}">
+              <div class="match-teams">${m.home} vs ${m.away}</div>
+              <div class="match-meta">${m.competition || ''}${m.ground ? ' · ' + m.ground : ''}</div>
+            </div>`).join('');
+          matchList.querySelectorAll('.match-card').forEach(card => {
+            card.addEventListener('click', () => {
+              matchList.querySelectorAll('.match-card').forEach(c => c.classList.remove('selected'));
+              card.classList.add('selected');
+              selectedMatchId = card.dataset.id;
+              document.getElementById('btn-pc-start').disabled = false;
+              showPcStatus(`Selected: ${card.querySelector('.match-teams').textContent} — press Start Sync`, false);
+            });
+          });
         } else {
-          showPcStatus(data.error, true);
+          matchList.innerHTML = '';
+          showPcStatus(data.message || data.error || 'No matches found for today', !data.ok);
         }
       } catch (err) {
+        matchList.innerHTML = '';
         showPcStatus(`Connection error: ${err.message}`, true);
       }
     });
 
     document.getElementById('btn-pc-start').addEventListener('click', async () => {
-      const matchId  = document.getElementById('pc-match-id').value.trim();
-      const apiToken = document.getElementById('pc-api-token').value.trim();
-      const dryRun   = document.getElementById('pc-dry-run').checked;
-      if (!matchId || !apiToken) {
-        showPcStatus('Enter a Match ID and API Token', true);
-        return;
-      }
+      if (!selectedMatchId) { showPcStatus('Pick a match first', true); return; }
+      const dryRun  = document.getElementById('pc-dry-run').checked;
       const headers = getAuthHeaders();
       if (!headers) return;
       try {
         const res  = await fetch('/api/playcricket/start', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ matchId, apiToken, dryRun })
+          method: 'POST', headers,
+          body: JSON.stringify({ matchId: selectedMatchId, dryRun })
         });
         const data = await res.json();
         showPcStatus(data.message || data.error, !data.ok);
-      } catch (err) {
-        showPcStatus(`Connection error: ${err.message}`, true);
-      }
+      } catch (err) { showPcStatus(`Connection error: ${err.message}`, true); }
     });
 
     document.getElementById('btn-pc-stop').addEventListener('click', async () => {
@@ -242,12 +300,11 @@
         const res  = await fetch('/api/playcricket/stop', { method: 'POST', headers });
         const data = await res.json();
         showPcStatus(data.message || data.error, !data.ok);
-      } catch (err) {
-        showPcStatus(`Connection error: ${err.message}`, true);
-      }
+      } catch (err) { showPcStatus(`Connection error: ${err.message}`, true); }
     });
 
-    // Poll spectator state
+    // ── Spectator state ───────────────────────────────────────────────────────
+
     async function pollSpectator() {
       try {
         const res  = await fetch('/api/spectator');
@@ -262,40 +319,38 @@
           d.bowler && d.bowler.name ? `Bowling: ${d.bowler.name}  ${d.bowler.wickets}-${d.bowler.runs} (${d.bowler.overs} ov)` : '',
           d.lastApiUpdate ? `Last API: ${new Date(d.lastApiUpdate).toLocaleTimeString()}` : 'API not yet synced'
         ].filter(Boolean).join('\n');
-        el.textContent  = lines;
-        el.className    = 'status-bar ok';
-      } catch { /* server offline */ }
+        el.textContent = lines;
+        el.className   = 'status-bar ok';
+      } catch {}
     }
     pollSpectator();
     setInterval(pollSpectator, 5000);
 
-    // Poll connection status
+    // ── Connection status ─────────────────────────────────────────────────────
+
     async function pollStatus() {
       try {
-        const res = await fetch('/api/status');
+        const res  = await fetch('/api/status');
         const data = await res.json();
-        const dot = document.getElementById('connection-dot');
+        const dot   = document.getElementById('connection-dot');
         const label = document.getElementById('connection-label');
         dot.classList.toggle('connected', data.serialConnected);
         label.textContent = data.serialConnected ? 'Arduino connected' : 'Arduino disconnected';
-
-        // Reflect Play Cricket sync state
-        if (data.playCricket) {
-          const pc = data.playCricket;
-          if (pc.syncing) {
-            const t    = pc.lastSync ? new Date(pc.lastSync).toLocaleTimeString() : 'pending...';
-            const err  = pc.lastError ? `\nERROR: ${pc.lastError}` : '';
-            const mode = pc.dryRun ? ' [DRY RUN - scoreboard not updated]' : '';
-            let scoreStr = '';
-            if (pc.lastScore) {
-              const s = pc.lastScore;
-              const fmt = v => v.replace(/-/g, '_');
-              scoreStr = `\nBat A: ${fmt(s.batsmanA)}  |  Total: ${fmt(s.total)}  |  Bat B: ${fmt(s.batsmanB)}` +
-                         `\nWickets: ${fmt(s.wickets)}  |  Overs: ${fmt(s.overs)}  |  Target: ${fmt(s.target)}  |  DLS: ${fmt(s.dls || '---')}`;
-            }
-            showPcStatus(`Syncing match ${pc.matchId}${mode}\nLast update: ${t}${err}${scoreStr}`, !!pc.lastError);
-            document.getElementById('pc-dry-run').checked = pc.dryRun;
+        if (data.playCricket && data.playCricket.syncing) {
+          const pc   = data.playCricket;
+          const t    = pc.lastSync ? new Date(pc.lastSync).toLocaleTimeString() : 'pending...';
+          const err  = pc.lastError ? `\nERROR: ${pc.lastError}` : '';
+          const mode = pc.dryRun ? ' [DRY RUN]' : '';
+          let scoreStr = '';
+          if (pc.lastScore) {
+            const s = pc.lastScore;
+            const f = v => v.replace(/-/g, '_');
+            scoreStr = `\n${f(s.total)}/${f(s.wickets)}  Overs: ${f(s.overs)}  BatA: ${f(s.batsmanA)}  BatB: ${f(s.batsmanB)}`;
           }
+          showPcStatus(`Syncing match ${pc.matchId}${mode}\nLast update: ${t}${err}${scoreStr}`, !!pc.lastError);
+          document.getElementById('pc-dry-run').checked = pc.dryRun;
+          document.getElementById('btn-pc-start').disabled = false;
+          selectedMatchId = pc.matchId;
         }
       } catch {}
     }

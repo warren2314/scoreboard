@@ -10,10 +10,24 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const HTTP_PORT = parseInt(process.env.HTTP_PORT || '80', 10);
-const SERIAL_PATH = process.env.SERIAL_PORT || '/dev/ttyACM0';
-const SERIAL_BAUD = parseInt(process.env.SERIAL_BAUD || '57600', 10);
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'changeme';
+const HTTP_PORT      = parseInt(process.env.HTTP_PORT || '80', 10);
+const SERIAL_PATH    = process.env.SERIAL_PORT || '/dev/ttyACM0';
+const SERIAL_BAUD    = parseInt(process.env.SERIAL_BAUD || '57600', 10);
+const ADMIN_TOKEN    = process.env.ADMIN_TOKEN || 'changeme';
+const PC_CONFIG_PATH = process.env.PC_CONFIG_PATH || '/opt/scoreboard/pc-config.json';
+const PC_SITE_ID     = '11685'; // Droylsden CC Play Cricket site ID
+
+// Persisted Play Cricket credentials — loaded from disk, updated via /api/playcricket/config
+let savedPcConfig = { apiToken: '' };
+try {
+  savedPcConfig = { ...savedPcConfig, ...JSON.parse(fs.readFileSync(PC_CONFIG_PATH, 'utf8')) };
+  console.log('[PlayCricket] Loaded saved config from', PC_CONFIG_PATH);
+} catch { /* no config yet — first run */ }
+
+function savePcConfig() {
+  try { fs.writeFileSync(PC_CONFIG_PATH, JSON.stringify(savedPcConfig, null, 2)); }
+  catch (e) { console.error('[PlayCricket] Could not save config:', e.message); }
+}
 
 // Current score state (kept in memory so /api/status can return it)
 const state = {
@@ -553,10 +567,39 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// GET /api/playcricket/config — returns whether a token is saved (token hint only, not full value)
+app.get('/api/playcricket/config', requireAdmin, (req, res) => {
+  const t = savedPcConfig.apiToken;
+  res.json({
+    hasSavedToken: !!t,
+    tokenHint: t ? `${'•'.repeat(Math.max(0, t.length - 4))}${t.slice(-4)}` : null,
+    siteId: PC_SITE_ID
+  });
+});
+
+// POST /api/playcricket/config — save API token to disk
+app.post('/api/playcricket/config', requireAdmin, (req, res) => {
+  const { apiToken } = req.body;
+  if (!apiToken || typeof apiToken !== 'string' || apiToken.trim() === '') {
+    return res.status(400).json({ error: 'apiToken is required' });
+  }
+  savedPcConfig.apiToken = apiToken.trim();
+  savePcConfig();
+  res.json({ ok: true, message: 'API token saved' });
+});
+
+// DELETE /api/playcricket/config — clear saved token
+app.delete('/api/playcricket/config', requireAdmin, (req, res) => {
+  savedPcConfig.apiToken = '';
+  savePcConfig();
+  res.json({ ok: true, message: 'Saved token cleared' });
+});
+
 app.post('/api/playcricket/start', requireAdmin, (req, res) => {
-  const { matchId, apiToken } = req.body;
+  const { matchId } = req.body;
+  const apiToken = req.body.apiToken || savedPcConfig.apiToken;
   if (!matchId || !apiToken) {
-    return res.status(400).json({ error: 'matchId and apiToken are required' });
+    return res.status(400).json({ error: matchId ? 'No API token — save one in the admin panel first' : 'matchId is required' });
   }
   const dryRun = req.body.dryRun === true;
   startPlayCricketSync(String(matchId), String(apiToken), dryRun);
@@ -572,8 +615,8 @@ app.post('/api/playcricket/stop', requireAdmin, (req, res) => {
 // Find today's matches for Droylsden CC (site_id 11685)
 // Play Cricket returns match_date as DD/MM/YYYY
 app.get('/api/playcricket/find-match', requireAdmin, (req, res) => {
-  const { apiToken } = req.query;
-  if (!apiToken) return res.status(400).json({ error: 'apiToken query parameter is required' });
+  const apiToken = req.query.apiToken || savedPcConfig.apiToken;
+  if (!apiToken) return res.status(400).json({ error: 'No API token — save one in the admin panel first' });
 
   const d     = new Date();
   const today = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
