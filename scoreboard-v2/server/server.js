@@ -15,10 +15,9 @@ const SERIAL_PATH    = process.env.SERIAL_PORT || '/dev/ttyACM0';
 const SERIAL_BAUD    = parseInt(process.env.SERIAL_BAUD || '57600', 10);
 const ADMIN_TOKEN    = process.env.ADMIN_TOKEN || 'changeme';
 const PC_CONFIG_PATH = process.env.PC_CONFIG_PATH || '/opt/scoreboard/pc-config.json';
-const PC_SITE_ID     = '11685'; // Droylsden CC Play Cricket site ID
 
 // Persisted Play Cricket credentials — loaded from disk, updated via /api/playcricket/config
-let savedPcConfig = { apiToken: '' };
+let savedPcConfig = { apiToken: '', siteId: '' };
 try {
   savedPcConfig = { ...savedPcConfig, ...JSON.parse(fs.readFileSync(PC_CONFIG_PATH, 'utf8')) };
   console.log('[PlayCricket] Loaded saved config from', PC_CONFIG_PATH);
@@ -567,25 +566,30 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// GET /api/playcricket/config — returns whether a token is saved (token hint only, not full value)
+// GET /api/playcricket/config — returns saved config (token hint only, not full value)
 app.get('/api/playcricket/config', requireAdmin, (req, res) => {
   const t = savedPcConfig.apiToken;
   res.json({
     hasSavedToken: !!t,
     tokenHint: t ? `${'•'.repeat(Math.max(0, t.length - 4))}${t.slice(-4)}` : null,
-    siteId: PC_SITE_ID
+    siteId: savedPcConfig.siteId || ''
   });
 });
 
-// POST /api/playcricket/config — save API token to disk
+// POST /api/playcricket/config — save API token and site ID to disk
 app.post('/api/playcricket/config', requireAdmin, (req, res) => {
-  const { apiToken } = req.body;
-  if (!apiToken || typeof apiToken !== 'string' || apiToken.trim() === '') {
-    return res.status(400).json({ error: 'apiToken is required' });
+  const { apiToken, siteId } = req.body;
+  if (apiToken && typeof apiToken === 'string' && apiToken.trim()) {
+    savedPcConfig.apiToken = apiToken.trim();
   }
-  savedPcConfig.apiToken = apiToken.trim();
+  if (siteId && typeof siteId === 'string' && siteId.trim()) {
+    savedPcConfig.siteId = siteId.trim();
+  }
+  if (!savedPcConfig.apiToken && !savedPcConfig.siteId) {
+    return res.status(400).json({ error: 'apiToken or siteId is required' });
+  }
   savePcConfig();
-  res.json({ ok: true, message: 'API token saved' });
+  res.json({ ok: true, message: 'Config saved' });
 });
 
 // DELETE /api/playcricket/config — clear saved token
@@ -618,10 +622,12 @@ app.get('/api/playcricket/find-match', requireAdmin, (req, res) => {
   const apiToken = req.query.apiToken || savedPcConfig.apiToken;
   if (!apiToken) return res.status(400).json({ error: 'No API token — save one in the admin panel first' });
 
+  const siteId = savedPcConfig.siteId;
+  if (!siteId) return res.status(400).json({ error: 'No site ID saved — add it in the admin panel' });
   const d     = new Date();
   const today = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
   const year  = d.getFullYear();
-  const path  = `/api/v2/matches.json?site_id=11685&season=${year}&api_token=${encodeURIComponent(apiToken)}`;
+  const path  = `/api/v2/matches.json?site_id=${encodeURIComponent(siteId)}&season=${year}&api_token=${encodeURIComponent(apiToken)}`;
 
   const pcReq = https.request({ hostname: 'www.play-cricket.com', path }, (pcRes) => {
     let data = '';

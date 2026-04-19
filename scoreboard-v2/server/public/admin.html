@@ -60,15 +60,19 @@
   <div class="pc-section">
     <div class="pc-heading">Play Cricket Live Sync</div>
 
-    <!-- API token (one-time admin setup) -->
-    <div class="section-label">API Token (one-time setup)</div>
+    <!-- API token + site ID (one-time admin setup) -->
+    <div class="section-label">One-time setup</div>
     <div id="token-hint" class="token-hint" style="display:none"></div>
     <div class="token-input">
-      <label for="pc-api-token">Token:</label>
-      <input type="password" id="pc-api-token" placeholder="Leave blank to use saved token">
+      <label for="pc-site-id">Site ID:</label>
+      <input type="text" id="pc-site-id" placeholder="e.g. 11685" inputmode="numeric">
+    </div>
+    <div class="token-input">
+      <label for="pc-api-token">API Token:</label>
+      <input type="password" id="pc-api-token" placeholder="Play Cricket API token">
     </div>
     <div class="admin-actions" style="margin-top:4px">
-      <button class="admin-btn" id="btn-save-token">Save Token</button>
+      <button class="admin-btn" id="btn-save-token">Save</button>
       <button class="admin-btn danger" id="btn-clear-token" style="display:none">Clear</button>
     </div>
 
@@ -202,29 +206,38 @@
         const data = await res.json();
         const hint    = document.getElementById('token-hint');
         const clearBtn = document.getElementById('btn-clear-token');
-        if (data.hasSavedToken) {
-          hint.textContent = `Saved token: ${data.tokenHint}`;
+        const hasSomething = data.hasSavedToken || data.siteId;
+        if (hasSomething) {
+          const parts = [];
+          if (data.siteId) parts.push(`Site ID: ${data.siteId}`);
+          if (data.hasSavedToken) parts.push(`Token: ${data.tokenHint}`);
+          hint.textContent = 'Saved — ' + parts.join('  ·  ');
           hint.style.display = 'block';
           clearBtn.style.display = '';
-          document.getElementById('pc-api-token').placeholder = 'Leave blank to use saved token';
+          if (data.siteId) document.getElementById('pc-site-id').placeholder = `Saved: ${data.siteId}`;
+          if (data.hasSavedToken) document.getElementById('pc-api-token').placeholder = 'Leave blank to keep saved token';
         } else {
           hint.style.display = 'none';
           clearBtn.style.display = 'none';
-          document.getElementById('pc-api-token').placeholder = 'Play Cricket API token';
         }
       } catch {}
     }
 
     document.getElementById('btn-save-token').addEventListener('click', async () => {
       const apiToken = document.getElementById('pc-api-token').value.trim();
-      if (!apiToken) { showPcStatus('Enter a token to save', true); return; }
+      const siteId   = document.getElementById('pc-site-id').value.trim();
+      if (!apiToken && !siteId) { showPcStatus('Enter a Site ID and/or API Token to save', true); return; }
       const headers = getAuthHeaders();
       if (!headers) return;
       try {
-        const res  = await fetch('/api/playcricket/config', { method: 'POST', headers, body: JSON.stringify({ apiToken }) });
+        const res  = await fetch('/api/playcricket/config', { method: 'POST', headers, body: JSON.stringify({ apiToken: apiToken || undefined, siteId: siteId || undefined }) });
         const data = await res.json();
         showPcStatus(data.message || data.error, !data.ok);
-        if (data.ok) { document.getElementById('pc-api-token').value = ''; loadPcConfig(); }
+        if (data.ok) {
+          document.getElementById('pc-api-token').value = '';
+          document.getElementById('pc-site-id').value   = '';
+          loadPcConfig();
+        }
       } catch (err) { showPcStatus(`Error: ${err.message}`, true); }
     });
 
