@@ -77,9 +77,9 @@ void shiftByte(int srckPin, int serinPin, byte value) {
   for (byte bit = 0; bit < 8; bit++) {
     digitalWrite(srckPin, LOW);
     digitalWrite(serinPin, (value & 0x01) ? HIGH : LOW);
-    delayMicroseconds(100);
+    delayMicroseconds(250);
     digitalWrite(srckPin, HIGH);
-    delayMicroseconds(100);
+    delayMicroseconds(250);
     value >>= 1;
   }
   digitalWrite(srckPin, LOW);
