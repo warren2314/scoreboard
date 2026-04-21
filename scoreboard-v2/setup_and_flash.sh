@@ -10,12 +10,13 @@ CLI="$CLI_DIR/arduino-cli"
 echo "=== Droylsden CC Scoreboard Setup Tool ==="
 echo ""
 
-# ── Step 0: Pull BT software from warren branch ──────────────────────────────
-echo "[0/6] Fetching BT software from warren branch..."
+# ── Step 0: Pull latest sketch and BT software from warren branch ────────────
+echo "[0/6] Fetching latest files from warren branch..."
 git -C "$SCRIPT_DIR/.." fetch origin warren 2>/dev/null || true
+git -C "$SCRIPT_DIR/.." show origin/warren:scoreboard-v2/arduino/scoreboard/scoreboard.ino > "$SKETCH"
 git -C "$SCRIPT_DIR/.." show origin/warren:scoreboard-v2/btscoreboard/btscoreboard.py > /tmp/btscoreboard.py
 git -C "$SCRIPT_DIR/.." show origin/warren:scoreboard-v2/btscoreboard/btscoreboard.service > /tmp/btscoreboard.service
-echo "      BT software fetched"
+echo "      Files fetched from warren branch"
 echo ""
 
 # ── Step 1: Install arduino-cli if missing ───────────────────────────────────
