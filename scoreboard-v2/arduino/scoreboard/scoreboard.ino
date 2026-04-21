@@ -4,10 +4,10 @@
 // All chains use confirmed pin order: SRCK, SERIN, RCK
 //
 // Chain 1 (pins 2,3,4) — 6 digits:
-//   BatB[0] BatB[1] BatB[2] | Wkts[0] | Overs[0] Overs[1]
+//   BatA[0] BatA[1] BatA[2] | Wkts[0] | Overs[0] Overs[1]
 //
 // Chain 2 (pins 5,6,7) — 6 digits:
-//   Total[0] Total[1] Total[2] | BatA[0] BatA[1] BatA[2]
+//   Total[0] Total[1] Total[2] | BatB[0] BatB[1] BatB[2]
 //
 // Chain 3 (pins 8,9,10) — 6 digits:
 //   Target[0] Target[1] Target[2] | DLS[0] DLS[1] DLS[2]
@@ -126,21 +126,21 @@ void testMode() {
 
 // Map score strings into display buffers and refresh
 void applyScore() {
-  // Chain 1: BatB(0-2) | Wkts(3) | Overs(4-5)
-  chain1[0] = encodeGlyph(batB[0]);
-  chain1[1] = encodeGlyph(batB[1]);
-  chain1[2] = encodeGlyph(batB[2]);
+  // Chain 1: BatA(0-2) | Wkts(3) | Overs(4-5)
+  chain1[0] = encodeGlyph(batA[0]);
+  chain1[1] = encodeGlyph(batA[1]);
+  chain1[2] = encodeGlyph(batA[2]);
   chain1[3] = encodeGlyph(wkts[0]);
   chain1[4] = encodeGlyph(overs[0]);
   chain1[5] = encodeGlyph(overs[1]);
 
-  // Chain 2: Total(0-2) | BatA(3-5)
+  // Chain 2: Total(0-2) | BatB(3-5)
   chain2[0] = encodeGlyph(total[0]);
   chain2[1] = encodeGlyph(total[1]);
   chain2[2] = encodeGlyph(total[2]);
-  chain2[3] = encodeGlyph(batA[0]);
-  chain2[4] = encodeGlyph(batA[1]);
-  chain2[5] = encodeGlyph(batA[2]);
+  chain2[3] = encodeGlyph(batB[0]);
+  chain2[4] = encodeGlyph(batB[1]);
+  chain2[5] = encodeGlyph(batB[2]);
 
   // Chain 3: Target(0-2) | DLS(3-5)
   chain3[0] = encodeGlyph(target[0]);
@@ -235,25 +235,6 @@ void processCommand() {
     Serial.print(" wkts="); Serial.print(wkts);
     Serial.print(" overs="); Serial.print(overs);
     Serial.print(" dls="); Serial.println(dls);
-    return;
-  }
-
-  // Set individual digit: digit,<index 0-17>,<value 0-9 or - for blank>#
-  if (strncmp(cmdBuf, "digit,", 6) == 0) {
-    char* p = cmdBuf + 6;
-    int idx = atoi(p);
-    while (*p && *p != ',') p++;
-    if (*p == ',') p++;
-    char val = *p;
-    byte glyph = encodeGlyph(val);
-    byte* chains[] = { chain1, chain2, chain3 };
-    if (idx >= 0 && idx < 18) {
-      chains[idx / 6][idx % 6] = glyph;
-      refreshAll();
-      Serial.print("OK:digit "); Serial.print(idx); Serial.print("="); Serial.println(val);
-    } else {
-      Serial.println("ERR:digit index out of range (0-17)");
-    }
     return;
   }
 
