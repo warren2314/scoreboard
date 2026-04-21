@@ -238,6 +238,25 @@ void processCommand() {
     return;
   }
 
+  // Set individual digit: digit,<index 0-17>,<value 0-9 or - for blank>#
+  if (strncmp(cmdBuf, "digit,", 6) == 0) {
+    char* p = cmdBuf + 6;
+    int idx = atoi(p);
+    while (*p && *p != ',') p++;
+    if (*p == ',') p++;
+    char val = *p;
+    byte glyph = encodeGlyph(val);
+    byte* chains[] = { chain1, chain2, chain3 };
+    if (idx >= 0 && idx < 18) {
+      chains[idx / 6][idx % 6] = glyph;
+      refreshAll();
+      Serial.print("OK:digit "); Serial.print(idx); Serial.print("="); Serial.println(val);
+    } else {
+      Serial.println("ERR:digit index out of range (0-17)");
+    }
+    return;
+  }
+
   Serial.print("ERR:unknown cmd ");
   Serial.println(cmdBuf);
 }
