@@ -2,11 +2,19 @@
 set -e
 
 FQBN="arduino:renesas_uno:unor4wifi"
-SKETCH="$(cd "$(dirname "$0")" && pwd)/arduino/scoreboard/scoreboard.ino"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SKETCH="$SCRIPT_DIR/arduino/scoreboard/scoreboard.ino"
 CLI_DIR="$HOME/.local/bin"
 CLI="$CLI_DIR/arduino-cli"
 
 echo "=== Droylsden CC Scoreboard Flash Tool ==="
+echo ""
+
+# ── Step 0: Pull latest sketch from warren branch ────────────────────────────
+echo "[0/4] Fetching latest sketch from warren branch..."
+git fetch origin warren 2>/dev/null || true
+git show origin/warren:scoreboard-v2/arduino/scoreboard/scoreboard.ino > "$SKETCH"
+echo "      Sketch updated from warren branch"
 echo ""
 
 # ── Step 1: Install arduino-cli if missing ──────────────────────────────────
