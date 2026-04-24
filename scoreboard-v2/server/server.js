@@ -45,7 +45,7 @@ function openSerial() {
   }
 
   try {
-    port = new SerialPort({ path: SERIAL_PATH, baudRate: SERIAL_BAUD });
+    port = new SerialPort({ path: SERIAL_PATH, baudRate: SERIAL_BAUD, hupcl: false });
     const parser = port.pipe(new ReadlineParser({ delimiter: '\n' }));
 
     port.on('open', () => {

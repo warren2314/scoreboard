@@ -1,0 +1,16 @@
+[Unit]
+Description=Droylsden CC BT Scoreboard (Play Cricket Scorer App receiver)
+After=network.target bluetooth.target scoreboard.service
+Wants=bluetooth.target
+Requires=scoreboard.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/btscoreboard/btscoreboard.py
+Restart=on-failure
+RestartSec=5
+Environment=SCOREBOARD_URL=http://localhost
+Environment=ADMIN_TOKEN=changeme
+
+[Install]
+WantedBy=multi-user.target
