@@ -142,6 +142,8 @@ arduino-cli upload -b arduino:renesas_uno:unor4wifi -p COM3 scoreboard-v2/arduin
 |---------|-------------|
 | `alltest#` | All 18 digits show 8 |
 | `walk#` | Steps an 8 through each digit, prints index |
+| `observe#` | Clears the board, then shows one `0` at a time on each digit with serial output |
+| `observefast#` | Same as `observe#` but runs quickly for a fast pass |
 | `clear#` | All digits off |
 | `status#` | Print last known score |
 | `digit,9,5#` | Set digit 9 (Wkts) to 5 |

@@ -16,6 +16,7 @@
     .btn-test  { background: #1a4f2a; color: #6f6; flex: 1; }
     .btn-clear { background: #3a3a3a; color: #ccc; flex: 1; }
     .btn-walk  { background: #4a3a00; color: #fc6; flex: 1; }
+    .btn-observe { background: #3d2458; color: #d8b4ff; flex: 1; }
     .btn-send  { background: #1a3d5a; color: #6af; flex: 1; }
     .btn-scan  { background: #4a1a1a; color: #f88; }
     .btn-serial { background: #2a7; color: #fff; padding: 10px 14px; white-space: nowrap; }
@@ -53,6 +54,8 @@
     <div class="btn-row">
       <button class="btn-test"  id="btn-alltest">All 8s</button>
       <button class="btn-walk"  id="btn-walk">Walk 8</button>
+      <button class="btn-observe" id="btn-observe">Observe</button>
+      <button class="btn-observe" id="btn-observefast">Observe Fast</button>
       <button class="btn-clear" id="btn-clear">Clear</button>
     </div>
   </div>
@@ -176,6 +179,8 @@
 
     document.getElementById('btn-alltest').addEventListener('click', () => sendRaw('alltest'));
     document.getElementById('btn-walk').addEventListener('click',    () => sendRaw('walk'));
+    document.getElementById('btn-observe').addEventListener('click', () => sendRaw('observe'));
+    document.getElementById('btn-observefast').addEventListener('click', () => sendRaw('observefast'));
     document.getElementById('btn-clear').addEventListener('click',   () => sendRaw('clear'));
 
     document.getElementById('btn-send').addEventListener('click', async () => {
