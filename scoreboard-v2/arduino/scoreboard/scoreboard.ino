@@ -20,6 +20,8 @@
 //   alltest#         same as 5#
 //   clear#           all digits off
 //   walk#            walk an 8 across all 18 digits (2s each), prints current index
+//   observe#         clear, then show one 0 at a time on each digit (slow)
+//   observefast#     same as observe# but faster
 //   status#          print last known score values
 //   digit,X,Y#       set digit X (0-17) to glyph Y (0-9 or - for blank)
 //   scan,X#          slowly cycle digit X through 0-9
@@ -47,6 +49,8 @@
 #define DIGITS_PER_CHAIN 6
 #define TOTAL_DIGITS     18   // 3 x 6
 #define SERIAL_BAUD      57600
+#define OBSERVE_DELAY_MS      1500
+#define OBSERVE_FAST_DELAY_MS 300
 
 // 7-segment encoding, LSB-first, confirmed working on this hardware
 //                      0    1    2    3    4    5    6    7    8    9
@@ -63,6 +67,11 @@ char target[4] = "--0";
 char wkts[2]   = "0";
 char overs[3]  = "-0";
 char dls[4]    = "--0";
+
+// Digits that physically have a segment connection (0 = no segments driven at boot)
+// These are set to '0' during staged startup to settle floating lines
+const int STARTUP_ZERO_DIGITS[] = {2, 5, 8, 9, 11, 14, 17};
+const int STARTUP_ZERO_COUNT    = 7;
 
 // Serial command buffer
 char    cmdBuf[64];
@@ -180,6 +189,31 @@ void safeDelay(unsigned long ms) {
   while (millis() - start < ms) yield();
 }
 
+void zeroWalkDigits() {
+  Serial.println("Walking 0 across all 18 digits...");
+  for (int i = 0; i < TOTAL_DIGITS; i++) {
+    memset(displayBuf, 0, sizeof(displayBuf));
+    displayBuf[i] = SEGS[0];
+    refreshAll();
+    Serial.print("digit="); Serial.println(i);
+    safeDelay(2000);
+  }
+  memset(displayBuf, 0, sizeof(displayBuf));
+  refreshAll();
+  Serial.println("OK:zerowalk done");
+}
+
+void runStagedStartup() {
+  Serial.println("startup: clear all");
+  clearAll();
+  safeDelay(500);
+  for (int i = 0; i < STARTUP_ZERO_COUNT; i++) {
+    setDigitGlyph(STARTUP_ZERO_DIGITS[i], '0');
+    safeDelay(150);
+  }
+  Serial.println("startup: complete");
+}
+
 void walkDigits() {
   Serial.println("Walking 8 across all 18 digits...");
   for (int i = 0; i < TOTAL_DIGITS; i++) {
@@ -192,6 +226,24 @@ void walkDigits() {
   memset(displayBuf, 0, sizeof(displayBuf));
   refreshAll();
   Serial.println("OK:walk done");
+}
+
+void observeDigits(unsigned long delayMs) {
+  clearAll();
+  Serial.println("observe: clear");
+  safeDelay(delayMs);
+
+  for (int i = 0; i < TOTAL_DIGITS; i++) {
+    clearAll();
+    setDigitGlyph(i, '0');
+    Serial.print("observe: index ");
+    Serial.print(i);
+    Serial.println(" -> 0");
+    safeDelay(delayMs);
+  }
+
+  clearAll();
+  Serial.println("observe: complete");
 }
 
 void scanDigit(int idx) {
@@ -227,7 +279,8 @@ void printHelp() {
   Serial.println("Chain2 D5/6/7  idx 6-11  BatB(6-8) Wkts(9) Overs(10-11)");
   Serial.println("Chain3 D8/9/10 idx 12-17 Target(12-14) DLS(15-17)");
   Serial.println("Production: 4,batA(3),total(3),batB(3),target(3),wkts(1),overs(2),dls(3)#");
-  Serial.println("Diag: 5# alltest# clear# walk# status# help#");
+  Serial.println("Diag: 5# alltest# clear# walk# zerowalk# observe# observefast# status# help#");
+  Serial.println("      startup# (staged boot — sets end-digit zeros to settle lines)");
   Serial.println("      digit,<0-17>,<0-9|->   scan,<0-17>   raw,<0-17>,<0-255>");
 }
 
@@ -292,6 +345,26 @@ void processCommand() {
     return;
   }
 
+  if (strcmp(cmdBuf, "zerowalk") == 0) {
+    zeroWalkDigits();
+    return;
+  }
+
+  if (strcmp(cmdBuf, "startup") == 0) {
+    runStagedStartup();
+    return;
+  }
+
+  if (strcmp(cmdBuf, "observe") == 0) {
+    observeDigits(OBSERVE_DELAY_MS);
+    return;
+  }
+
+  if (strcmp(cmdBuf, "observefast") == 0) {
+    observeDigits(OBSERVE_FAST_DELAY_MS);
+    return;
+  }
+
   if (strcmp(cmdBuf, "status") == 0) {
     printStatus();
     return;
@@ -353,8 +426,7 @@ void setup() {
     digitalWrite(pins[i], LOW);
   }
 
-  delay(2000);
-  clearAll();
+  runStagedStartup();
 
   printHelp();
 }
