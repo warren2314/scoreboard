@@ -1,6 +1,7 @@
 [Unit]
-Description=Cricket Scoreboard - Westbury on Severn CC
+Description=Cricket Scoreboard - Droylsden Cricket Club
 After=network.target
+Wants=btscoreboard.service
 
 [Service]
 Type=simple
