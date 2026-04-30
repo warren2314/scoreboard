@@ -551,6 +551,15 @@ app.post('/api/clear', (req, res) => {
   res.json({ ok: true, message: 'Display cleared' });
 });
 
+app.post('/api/reset', requireAdmin, (req, res) => {
+  state.total = '--0'; state.wickets = '0'; state.overs = '-0';
+  state.batsmanA = '--0'; state.batsmanB = '--0';
+  state.target = '--0'; state.dls = '--0';
+  stopPlayCricketSync();
+  sendToArduino('clear#');
+  res.json({ ok: true, message: 'Scores reset to zero and display cleared' });
+});
+
 app.get('/api/status', (req, res) => {
   res.json({
     ...state,

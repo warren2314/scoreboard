@@ -50,6 +50,7 @@
 
   <div class="admin-actions">
     <button class="admin-btn" id="btn-test">Test Mode</button>
+    <button class="admin-btn danger" id="btn-reset">Reset Scores</button>
     <button class="admin-btn danger" id="btn-reboot">Reboot Pi</button>
     <button class="admin-btn danger" id="btn-shutdown">Shutdown Pi</button>
   </div>
@@ -187,6 +188,7 @@
     }
 
     document.getElementById('btn-test').addEventListener('click', () => apiPost('/api/test', false));
+    document.getElementById('btn-reset').addEventListener('click', () => { if (confirm('Reset all scores to zero and clear the display?')) apiPost('/api/reset', true); });
     document.getElementById('btn-reboot').addEventListener('click',   () => { if (confirm('Reboot the Pi?')) apiPost('/api/reboot', true); });
     document.getElementById('btn-shutdown').addEventListener('click', () => { if (confirm('Shut down the Pi? You will need physical access to turn it back on.')) apiPost('/api/shutdown', true); });
 
