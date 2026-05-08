@@ -97,6 +97,31 @@ function getToken() {
   return document.getElementById('token').value;
 }
 
+let tokenCheckTimer = null;
+async function verifyToken() {
+  const token = getToken();
+  const tokenStatus = document.getElementById('token-status');
+  if (!tokenStatus) return;
+  if (!token) { tokenStatus.textContent = '–'; tokenStatus.className = 'token-status'; return; }
+  tokenStatus.textContent = 'Checking...';
+  tokenStatus.className = 'token-status checking';
+  try {
+    const res  = await fetch('/api/auth/check', { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await res.json();
+    if (data.valid) {
+      tokenStatus.textContent = '✓ Active';
+      tokenStatus.className = 'token-status ok';
+      localStorage.setItem('authToken', token);
+    } else {
+      tokenStatus.textContent = '✗ Invalid token';
+      tokenStatus.className = 'token-status error';
+    }
+  } catch {
+    tokenStatus.textContent = 'Offline';
+    tokenStatus.className = 'token-status error';
+  }
+}
+
 async function doSend() {
   const token = getToken();
   if (!token) {
@@ -193,6 +218,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Restore saved token so the scorer doesn't re-enter it every visit
   const saved = localStorage.getItem('authToken');
   if (saved) document.getElementById('token').value = saved;
+
+  // Live token validation feedback
+  document.getElementById('token').addEventListener('input', () => {
+    clearTimeout(tokenCheckTimer);
+    tokenCheckTimer = setTimeout(verifyToken, 400);
+  });
+  verifyToken();
 
   for (const name of Object.keys(score)) {
     buildField(name);

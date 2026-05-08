@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Droylsden CC Scoreboard Match-Day Guide</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 13mm 12mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: #17212b;
+      background: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.35;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      line-height: 1.15;
+    }
+
+    h1 {
+      font-size: 24pt;
+      color: #0f5132;
+      margin-bottom: 4mm;
+    }
+
+    h2 {
+      font-size: 15pt;
+      color: #0f5132;
+      margin: 8mm 0 3mm;
+      padding-bottom: 1.5mm;
+      border-bottom: 1px solid #cdd9d0;
+    }
+
+    h3 {
+      font-size: 11.5pt;
+      color: #1f3b2f;
+      margin: 4mm 0 1.5mm;
+    }
+
+    p {
+      margin: 0 0 2.5mm;
+    }
+
+    ul, ol {
+      margin: 0 0 3mm 5mm;
+      padding-left: 5mm;
+    }
+
+    li {
+      margin-bottom: 1.5mm;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 3mm 0 5mm;
+      page-break-inside: avoid;
+    }
+
+    th, td {
+      border: 1px solid #cdd9d0;
+      padding: 2.5mm;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #eef7f0;
+      color: #173c2a;
+      font-weight: 700;
+    }
+
+    .cover {
+      min-height: 238mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .title-block {
+      border: 2px solid #0f5132;
+      padding: 8mm;
+      background: #f6fbf7;
+    }
+
+    .subtitle {
+      font-size: 13pt;
+      color: #425466;
+      margin-bottom: 2mm;
+    }
+
+    .big-note {
+      font-size: 13pt;
+      font-weight: 700;
+      padding: 4mm;
+      border-left: 5px solid #0f5132;
+      background: #eef7f0;
+      margin: 5mm 0;
+    }
+
+    .box {
+      border: 1px solid #cdd9d0;
+      background: #fbfdfb;
+      padding: 4mm;
+      margin: 3mm 0;
+      page-break-inside: avoid;
+    }
+
+    .warning {
+      border-left: 5px solid #b45309;
+      background: #fff7ed;
+    }
+
+    .danger {
+      border-left: 5px solid #b91c1c;
+      background: #fef2f2;
+    }
+
+    .success {
+      border-left: 5px solid #15803d;
+      background: #f0fdf4;
+    }
+
+    .muted {
+      color: #5f6f7a;
+      font-size: 9.5pt;
+    }
+
+    .code {
+      font-family: Consolas, "Courier New", monospace;
+      background: #eef2f5;
+      border: 1px solid #d8e0e6;
+      padding: 1mm 1.5mm;
+      border-radius: 2mm;
+      white-space: nowrap;
+    }
+
+    .steps {
+      counter-reset: step;
+      margin-left: 0;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .steps li {
+      counter-increment: step;
+      padding: 2.5mm 3mm 2.5mm 12mm;
+      border: 1px solid #d7e1da;
+      background: #fff;
+      margin-bottom: 2mm;
+      position: relative;
+      page-break-inside: avoid;
+    }
+
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: 3mm;
+      top: 2.3mm;
+      width: 6mm;
+      height: 6mm;
+      border-radius: 50%;
+      background: #0f5132;
+      color: #fff;
+      text-align: center;
+      line-height: 6mm;
+      font-weight: 700;
+      font-size: 9pt;
+    }
+
+    .quick-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4mm;
+      margin-top: 4mm;
+    }
+
+    .quick-card {
+      border: 1px solid #cdd9d0;
+      padding: 4mm;
+      background: #fff;
+      min-height: 38mm;
+    }
+
+    .quick-card h3 {
+      margin-top: 0;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    .small {
+      font-size: 9pt;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <div>
+      <div class="title-block">
+        <div class="subtitle">Droylsden Cricket Club</div>
+        <h1>Scoreboard Match-Day Guide</h1>
+        <p class="muted">Simple instructions for scorers, helpers, and adults supervising the scoreboard.</p>
+      </div>
+
+      <div class="big-note">
+        The scoreboard does not need internet to show scores. If Play Cricket or WiFi has problems, use the local manual scoring page or the admin recovery buttons.
+      </div>
+
+      <div class="quick-grid">
+        <div class="quick-card success">
+          <h3>Normal scoring</h3>
+          <p>Use Play Cricket Scorer on the phone.</p>
+          <p>Connect it to <strong>BT-Scoreboard</strong> using Bluetooth.</p>
+        </div>
+        <div class="quick-card warning">
+          <h3>If it goes wrong</h3>
+          <p>Open the admin page and press <strong>Resend Current Score</strong>.</p>
+          <p>If starting again, press <strong>Reset to Zeros</strong>.</p>
+        </div>
+        <div class="quick-card">
+          <h3>Manual scoring page</h3>
+          <p><span class="code">http://&lt;pi-ip&gt;/</span></p>
+          <p>Or on the Pi hotspot:</p>
+          <p><span class="code">http://10.42.0.1/</span></p>
+        </div>
+        <div class="quick-card">
+          <h3>Admin page</h3>
+          <p><span class="code">http://&lt;pi-ip&gt;/admin</span></p>
+          <p>Or on the Pi hotspot:</p>
+          <p><span class="code">http://10.42.0.1/admin</span></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="box danger">
+      <h3>Important for under-16 scorers</h3>
+      <p>Do not change tokens, reboot the Pi, shut down the Pi, or change setup settings unless an adult asks you to.</p>
+      <p>If something is confusing, ask the captain, coach, or adult helper. The safest button during play is <strong>Resend Current Score</strong>.</p>
+    </div>
+  </section>
+
+  <section class="page-break">
+    <h2>1. Quick Match-Day Checklist</h2>
+
+    <h3>Before the match starts</h3>
+    <ol class="steps">
+      <li>Turn on the scoreboard power.</li>
+      <li>Wait about 60 seconds for the Raspberry Pi and Arduino to start.</li>
+      <li>Open Play Cricket Scorer on the scoring phone.</li>
+      <li>In Play Cricket Scorer, go to <strong>Settings - External Scoreboard - Generic</strong>.</li>
+      <li>Connect to <strong>BT-Scoreboard</strong>.</li>
+      <li>Ask an adult to open the admin page and press <strong>Reset to Zeros</strong>.</li>
+      <li>Press <strong>All 8s Test</strong> only if checking the display before play. Then press <strong>Reset to Zeros</strong> again.</li>
+      <li>Enter or confirm the starting score in Play Cricket Scorer.</li>
+    </ol>
+
+    <h3>During the match</h3>
+    <ol class="steps">
+      <li>Score normally in Play Cricket Scorer.</li>
+      <li>If the physical digits look wrong, open the admin page and press <strong>Resend Current Score</strong>.</li>
+      <li>If Bluetooth stops working, use the manual scoring page until Bluetooth is fixed.</li>
+      <li>If the board needs to be put back to all default zeros, press <strong>Reset to Zeros</strong>.</li>
+    </ol>
+
+    <div class="box warning">
+      <h3>Do not panic if internet is down</h3>
+      <p>Bluetooth scoring to the scoreboard can still work without internet. Online Play Cricket services may not update until internet returns, but the physical scoreboard can still be controlled.</p>
+    </div>
+  </section>
+
+  <section class="page-break">
+    <h2>2. Normal Scoring With Play Cricket Scorer</h2>
+
+    <p>Use this when the phone and Bluetooth scoreboard connection are working.</p>
+
+    <ol class="steps">
+      <li>Open <strong>Play Cricket Scorer</strong> on the scoring phone.</li>
+      <li>Open or create the match as normal.</li>
+      <li>Go to <strong>Settings</strong>.</li>
+      <li>Go to <strong>External Scoreboard</strong>.</li>
+      <li>Choose <strong>Generic</strong>.</li>
+      <li>Tap the scoreboard device named <strong>BT-Scoreboard</strong>.</li>
+      <li>When it says connected, score the match as normal.</li>
+    </ol>
+
+    <div class="box success">
+      <h3>What should happen</h3>
+      <p>Every score update in Play Cricket Scorer is sent by Bluetooth to the Pi. The Pi sends the score to the Arduino, and the Arduino updates the digits.</p>
+    </div>
+
+    <h3>If the digits look wrong but Play Cricket is still working</h3>
+    <ol class="steps">
+      <li>Open the admin page.</li>
+      <li>Press <strong>Resend Current Score</strong>.</li>
+      <li>Wait a few seconds.</li>
+      <li>If the display is still wrong, ask an adult to press <strong>All 8s Test</strong>, then <strong>Reset to Zeros</strong>, then resend the score from Play Cricket.</li>
+    </ol>
+  </section>
+
+  <section class="page-break">
+    <h2>3. If Play Cricket, Internet, or Bluetooth Has Problems</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Problem</th>
+          <th>What to do</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Internet is down</td>
+          <td>Keep scoring in Play Cricket if the app still works. The physical scoreboard can still update by Bluetooth. Use the admin or manual page from the Pi hotspot if needed.</td>
+        </tr>
+        <tr>
+          <td>Play Cricket Scorer will not update the board</td>
+          <td>Open the admin page and press <strong>Resend Current Score</strong>. If that does not help, use the manual scoring page.</td>
+        </tr>
+        <tr>
+          <td>Bluetooth will not connect</td>
+          <td>Use the manual scoring page until Bluetooth is fixed. Ask an adult to check the Bluetooth service later.</td>
+        </tr>
+        <tr>
+          <td>Digits are scrambled or missing</td>
+          <td>Press <strong>Resend Current Score</strong>. If still wrong, press <strong>All 8s Test</strong> to check the display, then press <strong>Reset to Zeros</strong>.</td>
+        </tr>
+        <tr>
+          <td>Need to start fresh</td>
+          <td>Press <strong>Reset to Zeros</strong>. Do not press Reboot or Shutdown unless an adult says so.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Manual scoring page</h3>
+    <p>Use this page if Play Cricket or Bluetooth is not controlling the board.</p>
+
+    <ol class="steps">
+      <li>Connect a phone to the same WiFi as the scoreboard, or connect to the Pi hotspot <strong>DCC-Scoreboard</strong>.</li>
+      <li>Open <span class="code">http://&lt;pi-ip&gt;/</span>. If using the Pi hotspot, open <span class="code">http://10.42.0.1/</span>.</li>
+      <li>Enter the scorer token.</li>
+      <li>Use the plus and minus buttons to change the score.</li>
+      <li>Each change is sent to the physical scoreboard automatically.</li>
+      <li>For a new innings or fresh start, press <strong>New Innings</strong>.</li>
+    </ol>
+
+    <div class="box">
+      <h3>Scorer token</h3>
+      <p>The scorer token is the password for the manual scoring page. Ask an adult for it. Do not share it outside the scoring team.</p>
+      <!-- PRIVATE_TOKEN_LINE -->
+      <p class="muted">Write it on a private team sheet if needed, not on the public copy of this guide.</p>
+    </div>
+  </section>
+
+  <section class="page-break">
+    <h2>4. Admin Page: Recovery Buttons</h2>
+
+    <p>The admin page is for recovery and setup. A younger scorer should normally only use it with an adult nearby.</p>
+
+    <p>Open:</p>
+    <p><span class="code">http://&lt;pi-ip&gt;/admin</span></p>
+    <p>Or, on the Pi hotspot:</p>
+    <p><span class="code">http://10.42.0.1/admin</span></p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Button</th>
+          <th>Use it when...</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Resend Current Score</strong></td>
+          <td>The scoreboard digits look wrong, but the score stored on the Pi is correct. This is the safest recovery during a match.</td>
+        </tr>
+        <tr>
+          <td><strong>Reset to Zeros</strong></td>
+          <td>You are starting fresh or need the board back to default zeros.</td>
+        </tr>
+        <tr>
+          <td><strong>Startup Sequence</strong></td>
+          <td>The board has just powered on and you want the Arduino to run its controlled startup again.</td>
+        </tr>
+        <tr>
+          <td><strong>Clear Display</strong></td>
+          <td>You want all digits off. Use carefully during a match.</td>
+        </tr>
+        <tr>
+          <td><strong>All 8s Test</strong></td>
+          <td>You are checking that every digit and segment can light. Do this before play, not during play unless needed.</td>
+        </tr>
+        <tr>
+          <td><strong>Zero Walk</strong></td>
+          <td>An adult is testing each digit one at a time with a low-load zero.</td>
+        </tr>
+        <tr>
+          <td><strong>Observe Mode</strong></td>
+          <td>An adult is filming the board to find the exact digit that fails.</td>
+        </tr>
+        <tr>
+          <td><strong>Reboot Pi / Shutdown Pi</strong></td>
+          <td>Adult-only. Do not press these during play unless told to.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="box danger">
+      <h3>Admin token</h3>
+      <p>The admin token unlocks recovery and setup controls. It should be held by an adult or lead scorer.</p>
+    </div>
+  </section>
+
+  <section class="page-break">
+    <h2>5. Adding Play Cricket API Token and Site ID</h2>
+
+    <p>This is normally adult setup. It is not needed for Bluetooth scoring from Play Cricket Scorer, but it is useful for API sync and match lookup.</p>
+
+    <ol class="steps">
+      <li>Open the admin page: <span class="code">http://&lt;pi-ip&gt;/admin</span> or <span class="code">http://10.42.0.1/admin</span>.</li>
+      <li>Enter the admin token.</li>
+      <li>Find <strong>Play Cricket Live Sync</strong>.</li>
+      <li>Under <strong>One-time setup</strong>, enter the Play Cricket <strong>Site ID</strong>.</li>
+      <li>Enter the Play Cricket <strong>API Token</strong>.</li>
+      <li>Press <strong>Save</strong>.</li>
+      <li>Use <strong>Find Today's Matches</strong> to check the token and site ID are working.</li>
+    </ol>
+
+    <div class="box warning">
+      <h3>Token safety</h3>
+      <p>Do not put the API token in a public WhatsApp group or on a public printout. If a young scorer needs access, an adult should enter it for them.</p>
+    </div>
+
+    <h3>Starting Play Cricket API sync</h3>
+    <ol class="steps">
+      <li>Open the admin page.</li>
+      <li>Press <strong>Find Today's Matches</strong>.</li>
+      <li>Select the correct match.</li>
+      <li>Optional: tick <strong>Dry Run</strong> first to check what it would send.</li>
+      <li>Press <strong>Start Sync</strong>.</li>
+      <li>If using Bluetooth scoring, you normally do not need API sync at the same time.</li>
+    </ol>
+  </section>
+
+  <section class="page-break">
+    <h2>6. Using the Pi Hotspot When There Is No WiFi</h2>
+
+    <p>The Pi can broadcast a local WiFi network so a phone can reach the manual scorer page and admin page without internet.</p>
+
+    <div class="box">
+      <h3>Hotspot details</h3>
+      <p>WiFi name: <strong>DCC-Scoreboard</strong></p>
+      <p>Manual scoring page: <span class="code">http://10.42.0.1/</span></p>
+      <p>Admin page: <span class="code">http://10.42.0.1/admin</span></p>
+    </div>
+
+    <h3>Recommended phone setup</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Phone</th>
+          <th>Best use</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Scorer phone</td>
+          <td>Use Play Cricket Scorer with Bluetooth. Keep mobile data on if you need online Play Cricket services.</td>
+        </tr>
+        <tr>
+          <td>Second phone or adult phone</td>
+          <td>Connect to <strong>DCC-Scoreboard</strong> WiFi and use admin/manual pages as the backup control.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="box warning">
+      <h3>If one phone must do everything</h3>
+      <p>The scorer phone can briefly join <strong>DCC-Scoreboard</strong> WiFi to press a recovery button, then switch back if needed. Bluetooth scoring should continue separately, but using a second phone is cleaner.</p>
+    </div>
+  </section>
+
+  <section class="page-break">
+    <h2>7. Adult Setup: Hotspot and Services</h2>
+
+    <p>This section is for adults or technical helpers.</p>
+
+    <h3>Enable the Pi hotspot</h3>
+    <ol class="steps">
+      <li>SSH into the Pi or use a keyboard and monitor.</li>
+      <li>Go to the scoreboard folder: <span class="code">cd scoreboard/scoreboard-v2</span></li>
+      <li>Run: <span class="code">HOTSPOT_PASSWORD='choose-a-password' bash setup_hotspot.sh</span></li>
+      <li>On a phone, connect to WiFi <strong>DCC-Scoreboard</strong>.</li>
+      <li>Open <span class="code">http://10.42.0.1/admin</span>.</li>
+    </ol>
+
+    <h3>Set the scorer/admin tokens</h3>
+    <p>The web server supports two tokens: one scorer token for the manual scoring page, and one admin token for adult recovery/setup actions. The Bluetooth service should use the admin token when it posts scores to the local server.</p>
+
+    <ol class="steps">
+      <li>Open <span class="code">/etc/systemd/system/scoreboard.service</span>.</li>
+      <li>Set <span class="code">ADMIN_TOKEN=adult-admin-token</span>.</li>
+      <li>Set <span class="code">SCORER_TOKEN=scorer-token</span>.</li>
+      <li>Open <span class="code">/etc/systemd/system/btscoreboard.service</span>.</li>
+      <li>Set the same <span class="code">ADMIN_TOKEN=adult-admin-token</span>.</li>
+      <li>Run <span class="code">sudo systemctl daemon-reload</span>.</li>
+      <li>Run <span class="code">sudo systemctl restart scoreboard btscoreboard</span>.</li>
+    </ol>
+
+    <h3>Useful checks</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Check</th>
+          <th>Command or page</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Node scoreboard server logs</td>
+          <td><span class="code">sudo journalctl -u scoreboard -f</span></td>
+        </tr>
+        <tr>
+          <td>Bluetooth service logs</td>
+          <td><span class="code">sudo journalctl -u btscoreboard -f</span></td>
+        </tr>
+        <tr>
+          <td>Arduino connected</td>
+          <td>Admin page connection indicator should say <strong>Arduino connected</strong>.</td>
+        </tr>
+        <tr>
+          <td>Manual board check</td>
+          <td>Admin page -> <strong>All 8s Test</strong>, then <strong>Reset to Zeros</strong>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="page-break">
+    <h2>8. Final Fallback Plan</h2>
+
+    <p>If something fails, work down this list. Do not change lots of things at once.</p>
+
+    <ol class="steps">
+      <li>If the displayed score is wrong, press <strong>Resend Current Score</strong>.</li>
+      <li>If starting fresh, press <strong>Reset to Zeros</strong>.</li>
+      <li>If Play Cricket Bluetooth is not updating the board, use the manual scoring page.</li>
+      <li>If normal WiFi is unavailable, connect to the Pi hotspot <strong>DCC-Scoreboard</strong>.</li>
+      <li>If the admin page cannot see the Arduino, ask an adult to check USB and restart services.</li>
+      <li>If the display itself fails the <strong>All 8s Test</strong>, treat it as a wiring/power/hardware problem and ask an adult to inspect it.</li>
+    </ol>
+
+    <div class="box success">
+      <h3>Best recovery button during play</h3>
+      <p><strong>Resend Current Score</strong> is the safest first button. It does not reset the match; it just sends the known score again.</p>
+    </div>
+
+    <div class="box danger">
+      <h3>Do not do these unless an adult says so</h3>
+      <ul>
+        <li>Do not reboot the Pi during play.</li>
+        <li>Do not shut down the Pi during play.</li>
+        <li>Do not change saved API tokens during play.</li>
+        <li>Do not unplug wires or swap chips during play.</li>
+      </ul>
+    </div>
+  </section>
+</body>
+</html>

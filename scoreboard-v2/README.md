@@ -74,16 +74,17 @@ This installs:
 - BT Scoreboard service (`/opt/btscoreboard`)
 - Flashes the Arduino sketch (Arduino must be plugged in)
 
-### 3. Set the admin token
+### 3. Set the scorer and admin tokens
 
-The admin token protects the score API and admin panel. Set the **same token** in both service files:
+Use a scorer token for the manual scoring page, and keep the admin token for adults. The Bluetooth service should use the admin token because it posts scores to the local server.
 
 ```bash
 sudo nano /etc/systemd/system/scoreboard.service
-# Change: ADMIN_TOKEN=changeme → ADMIN_TOKEN=yourtoken
+# Change: ADMIN_TOKEN=changeme -> ADMIN_TOKEN=adult-admin-token
+# Change: SCORER_TOKEN=changeme -> SCORER_TOKEN=scorer-token
 
 sudo nano /etc/systemd/system/btscoreboard.service
-# Change: ADMIN_TOKEN=changeme → yourtoken (must match)
+# Change: ADMIN_TOKEN=changeme -> adult-admin-token (must match scoreboard.service)
 
 sudo systemctl daemon-reload
 sudo systemctl restart scoreboard btscoreboard
@@ -182,12 +183,45 @@ Open `http://<pi-ip>/admin` — requires the admin token.
 
 | Button | What it does |
 |--------|-------------|
-| Test Mode | All 18 digits show 8 |
+| Resend Current Score | Sends the server's current score to the Arduino again |
+| Reset to Zeros | Sends the default zero score to the Arduino (`--0`, `0`, `-0`) |
+| Startup Sequence | Runs the Arduino staged startup routine |
+| Clear Display | Turns all digits off |
+| All 8s Test | All 18 digits show 8 |
+| Zero Walk | Steps a low-load `0` through each digit |
+| Observe Mode | Camera-friendly one-digit-at-a-time diagnostic |
 | Load from USB | Reads `scoreboard.json` from a USB stick |
 | Start Sync | Start Play Cricket API sync (backup scoring method) |
 | Stop Sync | Stop Play Cricket API sync |
 | Reboot Pi | Reboots the Pi |
 | Shutdown Pi | Shuts down the Pi safely |
+
+### Offline / no-internet fallback
+
+Play Cricket Scorer uses Bluetooth for the live scoreboard feed, so it does not need internet to update the board. The optional local WiFi hotspot is only for opening the admin page when normal WiFi is unavailable.
+
+Recommended match-day split:
+
+```text
+Scorer phone: Play Cricket Scorer over Bluetooth
+Second phone or scorer phone briefly: DCC-Scoreboard WiFi -> http://10.42.0.1/admin
+```
+
+To configure the Pi hotspot:
+
+```bash
+cd scoreboard-v2
+HOTSPOT_PASSWORD='choose-a-match-day-password' bash setup_hotspot.sh
+```
+
+This creates:
+
+```text
+SSID: DCC-Scoreboard
+Admin page: http://10.42.0.1/admin
+```
+
+If the scorer phone joins this hotspot, it may lose normal internet unless mobile data remains active. Bluetooth scoring should continue either way, but a second phone is the cleaner recovery device.
 
 ### USB config (for Play Cricket API sync)
 
@@ -262,6 +296,7 @@ Overlay filesystem was not enabled. Reimage, redeploy, and enable overlay before
 | `btscoreboard/btscoreboard.service` | systemd service for BT scoreboard |
 | `scoreboard.service` | systemd service for Node.js server |
 | `deploy.sh` | One-command deploy script (run on Pi) |
+| `setup_hotspot.sh` | Optional local WiFi hotspot setup for field recovery |
 
 ---
 

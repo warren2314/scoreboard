@@ -14,6 +14,7 @@ const HTTP_PORT      = parseInt(process.env.HTTP_PORT || '80', 10);
 const SERIAL_PATH    = process.env.SERIAL_PORT || '/dev/ttyACM0';
 const SERIAL_BAUD    = parseInt(process.env.SERIAL_BAUD || '57600', 10);
 const ADMIN_TOKEN    = process.env.ADMIN_TOKEN || 'changeme';
+const SCORER_TOKEN   = process.env.SCORER_TOKEN || ADMIN_TOKEN;
 const PC_CONFIG_PATH = process.env.PC_CONFIG_PATH || '/opt/scoreboard/pc-config.json';
 
 // Persisted Play Cricket credentials — loaded from disk, updated via /api/playcricket/config
@@ -156,6 +157,49 @@ function validateField(value, length) {
     if (!isValidDigit(ch)) return false;
   }
   return true;
+}
+
+const DEFAULT_ZERO_SCORE = {
+  total:    '--0',
+  wickets:  '0',
+  overs:    '-0',
+  batsmanA: '--0',
+  batsmanB: '--0',
+  target:   '--0',
+  dls:      '--0'
+};
+
+function applyScoreState(nextState) {
+  state.total    = nextState.total;
+  state.wickets  = nextState.wickets;
+  state.overs    = nextState.overs;
+  state.batsmanA = nextState.batsmanA;
+  state.batsmanB = nextState.batsmanB;
+  state.target   = nextState.target;
+  state.dls      = nextState.dls;
+
+  spectatorState.total       = nextState.total;
+  spectatorState.wickets     = nextState.wickets;
+  spectatorState.overs       = nextState.overs;
+  spectatorState.batA.runs   = nextState.batsmanA;
+  spectatorState.batB.runs   = nextState.batsmanB;
+  spectatorState.target      = nextState.target;
+  spectatorState.dls         = nextState.dls;
+  pushSpectatorUpdate();
+}
+
+function buildScoreCommand(scoreState) {
+  return `4,${scoreState.batsmanA},${scoreState.total},${scoreState.batsmanB},${scoreState.target},${scoreState.wickets},${scoreState.overs},${scoreState.dls}#`;
+}
+
+function sendScoreState(scoreState) {
+  const cmd = buildScoreCommand(scoreState);
+  return { cmd, sent: sendToArduino(cmd) };
+}
+
+function sendBoardCommand(command) {
+  const cmd = command.endsWith('#') ? command : command + '#';
+  return { cmd, sent: sendToArduino(cmd) };
 }
 
 // --- Play Cricket sync ---
@@ -386,16 +430,25 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+function requireScorer(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || (auth !== `Bearer ${SCORER_TOKEN}` && auth !== `Bearer ${ADMIN_TOKEN}`)) {
+    return res.status(401).json({ error: 'Unauthorized. Provide scorer token' });
+  }
+  next();
+}
+
 // --- Routes ---
 
 // Verify a token without exposing it — used by the UI to show a live "connected" state
+// Accepts both ADMIN_TOKEN and SCORER_TOKEN as valid
 app.get('/api/auth/check', (req, res) => {
   const auth = req.headers.authorization;
-  const valid = auth === `Bearer ${ADMIN_TOKEN}`;
+  const valid = auth === `Bearer ${ADMIN_TOKEN}` || auth === `Bearer ${SCORER_TOKEN}`;
   res.json({ valid });
 });
 
-app.post('/api/score', requireAdmin, (req, res) => {
+app.post('/api/score', requireScorer, (req, res) => {
   const { total, wickets, overs, batsmanA, batsmanB, target, dls } = req.body;
 
   // Validate field lengths: total(3), wickets(2), overs(2), batsmanA(3), batsmanB(3), target(3), dls(3)
@@ -407,29 +460,10 @@ app.post('/api/score', requireAdmin, (req, res) => {
   if (!validateField(target, 3)) return res.status(400).json({ error: 'Invalid target (3 digits)' });
   if (!validateField(dls, 3)) return res.status(400).json({ error: 'Invalid dls (3 digits)' });
 
-  // Update state
-  state.total = total;
-  state.wickets = wickets;
-  state.overs = overs;
-  state.batsmanA = batsmanA;
-  state.batsmanB = batsmanB;
-  state.target = target;
-  state.dls = dls;
+  const nextScore = { total, wickets, overs, batsmanA, batsmanB, target, dls };
+  applyScoreState(nextScore);
 
-  // Mirror live numbers into spectator display and push update
-  spectatorState.total       = total;
-  spectatorState.wickets     = wickets;
-  spectatorState.overs       = overs;
-  spectatorState.batA.runs   = batsmanA;
-  spectatorState.batB.runs   = batsmanB;
-  spectatorState.target      = target;
-  spectatorState.dls         = dls;
-  pushSpectatorUpdate();
-
-  // Command format: 4,batA,total,batB,target,wickets,overs,dls#
-  const cmd = `4,${batsmanA},${total},${batsmanB},${target},${wickets},${overs},${dls}#`;
-
-  const sent = sendToArduino(cmd);
+  const { cmd, sent } = sendScoreState(nextScore);
   if (!sent) {
     return res.status(503).json({ error: 'Serial port not connected' });
   }
@@ -437,6 +471,43 @@ app.post('/api/score', requireAdmin, (req, res) => {
   const summary = `Total: ${total} for ${wickets} wkts from ${overs} overs. ` +
     `Target: ${target}. Bat A: ${batsmanA}, Bat B: ${batsmanB}. DLS: ${dls}`;
   res.json({ ok: true, message: summary, command: cmd });
+});
+
+app.post('/api/board/reset', requireAdmin, (req, res) => {
+  applyScoreState(DEFAULT_ZERO_SCORE);
+  const { cmd, sent } = sendScoreState(DEFAULT_ZERO_SCORE);
+  if (!sent) {
+    return res.status(503).json({ error: 'Serial port not connected' });
+  }
+  res.json({ ok: true, message: 'Scoreboard reset to default zeros', command: cmd });
+});
+
+app.post('/api/board/resend', requireAdmin, (req, res) => {
+  const { cmd, sent } = sendScoreState(state);
+  if (!sent) {
+    return res.status(503).json({ error: 'Serial port not connected' });
+  }
+  res.json({ ok: true, message: 'Current score resent to scoreboard', command: cmd });
+});
+
+const BOARD_COMMANDS = {
+  startup:  { command: 'startup#',  message: 'Startup sequence sent' },
+  clear:    { command: 'clear#',    message: 'Display cleared' },
+  alltest:  { command: 'alltest#',  message: 'All 8s test sent' },
+  zerowalk: { command: 'zerowalk#', message: 'Zero walk started' },
+  observe:  { command: 'observe#',  message: 'Observe mode started' }
+};
+
+app.post('/api/board/:action', requireAdmin, (req, res) => {
+  const action = BOARD_COMMANDS[req.params.action];
+  if (!action) {
+    return res.status(404).json({ error: 'Unknown board action' });
+  }
+  const { cmd, sent } = sendBoardCommand(action.command);
+  if (!sent) {
+    return res.status(503).json({ error: 'Serial port not connected' });
+  }
+  res.json({ ok: true, message: action.message, command: cmd });
 });
 
 app.post('/api/test', (req, res) => {
